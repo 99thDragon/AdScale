@@ -1,5 +1,5 @@
 import GoalInput from './GoalInput'
-import CampaignCard from './CampaignCard'
+import CampaignGrid from './CampaignGrid'
 import mockCampaigns from '../data/mockCampaigns'
 
 function Dashboard() {
@@ -13,14 +13,7 @@ function Dashboard() {
 
         <GoalInput />
 
-        <div className="my-8 border-t border-slate-200 pt-8">
-          <h2 className="mb-6 text-xl font-semibold text-slate-800">Active AI Campaigns</h2>
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {mockCampaigns.map((campaign) => (
-              <CampaignCard key={campaign.id} {...campaign} />
-            ))}
-          </div>
-        </div>
+        <CampaignGrid campaigns={mockCampaigns} />
       </div>
     </div>
   )

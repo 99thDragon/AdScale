@@ -1,3 +1,8 @@
+/**
+ * @typedef {{ id: string, name: string, platform: string, status: string, budgetSpent: string, ctr: string, conversions: number }} Campaign
+ */
+
+/** @type {Campaign[]} */
 const mockCampaigns = [
   {
     id: '1',
