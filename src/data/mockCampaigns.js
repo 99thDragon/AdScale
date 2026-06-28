@@ -1,0 +1,58 @@
+const mockCampaigns = [
+  {
+    id: '1',
+    name: 'Summer Sale — Meta',
+    platform: 'Meta',
+    status: 'Active',
+    budgetSpent: '$1,240 / $2,000',
+    ctr: '2.4%',
+    conversions: 87,
+  },
+  {
+    id: '2',
+    name: 'Brand Awareness — Google Ads',
+    platform: 'Google Ads',
+    status: 'Optimizing',
+    budgetSpent: '$890 / $1,500',
+    ctr: '1.8%',
+    conversions: 42,
+  },
+  {
+    id: '3',
+    name: 'Product Launch — Meta',
+    platform: 'Meta',
+    status: 'Active',
+    budgetSpent: '$3,100 / $5,000',
+    ctr: '3.1%',
+    conversions: 156,
+  },
+  {
+    id: '4',
+    name: 'Retargeting — Google Ads',
+    platform: 'Google Ads',
+    status: 'Paused',
+    budgetSpent: '$450 / $800',
+    ctr: '4.2%',
+    conversions: 23,
+  },
+  {
+    id: '5',
+    name: 'Holiday Promo — Meta',
+    platform: 'Meta',
+    status: 'Optimizing',
+    budgetSpent: '$2,200 / $3,000',
+    ctr: '2.9%',
+    conversions: 112,
+  },
+  {
+    id: '6',
+    name: 'Lead Gen — Google Ads',
+    platform: 'Google Ads',
+    status: 'Active',
+    budgetSpent: '$1,680 / $2,500',
+    ctr: '2.1%',
+    conversions: 64,
+  },
+]
+
+export default mockCampaigns
