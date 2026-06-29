@@ -1,4 +1,4 @@
-import { mockGenerateCampaigns } from '../src/api/mockGenerate.js'
+import { mockGenerateCampaignPreview } from '../src/api/mockGenerate.js'
 
 /**
  * Dev-only mock for POST /campaigns/generate.
@@ -20,13 +20,13 @@ export function campaignsMockPlugin() {
         req.on('end', async () => {
           try {
             const { goal = '' } = JSON.parse(body || '{}')
-            const data = mockGenerateCampaigns(goal)
+            const campaign = mockGenerateCampaignPreview(goal)
 
             await new Promise((r) => setTimeout(r, 600))
 
             res.setHeader('Content-Type', 'application/json')
             res.statusCode = 200
-            res.end(JSON.stringify(data))
+            res.end(JSON.stringify({ campaign }))
           } catch {
             res.statusCode = 500
             res.end(JSON.stringify({ message: 'Mock handler failed' }))

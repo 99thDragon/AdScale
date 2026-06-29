@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { generateCampaigns } from '../api/campaigns'
+import { generateCampaignPreview } from '../api/campaigns'
 
-function GoalInput({ onCampaignsGenerated }) {
+function GoalInput({ onCampaignPreview }) {
   const [goal, setGoal] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -14,8 +14,8 @@ function GoalInput({ onCampaignsGenerated }) {
     setError(null)
 
     try {
-      const data = await generateCampaigns(trimmed)
-      onCampaignsGenerated?.(data.campaigns ?? [])
+      const data = await generateCampaignPreview(trimmed)
+      onCampaignPreview?.(data.campaign)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
