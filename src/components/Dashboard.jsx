@@ -108,11 +108,12 @@ function Dashboard() {
     }
   }, [role])
 
-  function handleApprove(selectedChannelIds) {
-    if (!preview) return
+  function handleApprove(selectedChannelIds, editedPreview) {
+    const previewData = editedPreview ?? preview
+    if (!previewData) return
     setApproving(true)
     setTimeout(async () => {
-      const newCampaign = previewToCampaign(preview, selectedChannelIds)
+      const newCampaign = previewToCampaign(previewData, selectedChannelIds)
       setCampaigns((prev) => [newCampaign, ...prev])
       setPreview(null)
       setApproving(false)

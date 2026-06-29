@@ -27,6 +27,35 @@ import { CONNECTED_CHANNELS } from './connectedChannels.js'
  * }} CampaignPreview
  */
 
+/** @param {string} budget */
+export function parseBudgetAmount(budget) {
+  const match = String(budget).match(/([\d,]+)/)
+  if (!match) return null
+  const amount = Number(match[1].replace(/,/g, ''))
+  return Number.isFinite(amount) && amount > 0 ? amount : null
+}
+
+/** @param {number} amount */
+export function formatBudget(amount) {
+  return `$${Math.round(amount).toLocaleString()}`
+}
+
+/** @param {number} budgetNum @param {number} [durationDays] */
+export function recalculateEstimatedSpend(budgetNum, durationDays = 14) {
+  const weeklyMax = budgetNum
+  const weeklyMin = Math.round(budgetNum * 0.85)
+  const dailyAvg = Math.round(budgetNum / 7)
+  const totalEstimate = Math.round(budgetNum * (durationDays / 7))
+
+  return {
+    weeklyMin: formatBudget(weeklyMin),
+    weeklyMax: formatBudget(weeklyMax),
+    dailyAverage: formatBudget(dailyAvg),
+    durationDays,
+    totalEstimate: formatBudget(totalEstimate),
+  }
+}
+
 /** @param {CampaignPreview} preview @param {string[]} [selectedChannelIds] */
 export function previewToCampaign(preview, selectedChannelIds = []) {
   const channels = CONNECTED_CHANNELS.filter((c) => selectedChannelIds.includes(c.id))
