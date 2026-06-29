@@ -2,9 +2,9 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? ''
 
 /**
  * @param {string} goal
- * @returns {Promise<{ campaigns: Array<{ id: string, name: string, platform: string, status: string, budgetSpent: string, ctr: string, conversions: number }> }>}
+ * @returns {Promise<{ campaign: import('../data/campaignTypes.js').CampaignPreview }>}
  */
-export async function generateCampaigns(goal) {
+export async function generateCampaignPreview(goal) {
   const res = await fetch(`${API_BASE}/campaigns/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
