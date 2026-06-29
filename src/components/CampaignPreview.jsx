@@ -1,31 +1,67 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ChannelSelector from './ChannelSelector'
 import ApproveConfirmModal from './ApproveConfirmModal'
 import { defaultSelectedChannels, getChannelLabels } from '../data/connectedChannels'
+import {
+  formatBudget,
+  parseBudgetAmount,
+  recalculateEstimatedSpend,
+} from '../data/campaignTypes'
 
 const platformStyles = {
   Meta: 'bg-blue-100 text-blue-800',
   'Google Ads': 'bg-red-100 text-red-800',
 }
 
-function PreviewField({ label, children, className = '' }) {
+const inputClassName =
+  'mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20'
+
+function EditableField({ label, htmlFor, children, className = '' }) {
   return (
     <div className={className}>
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <div className="mt-1 text-sm text-slate-800">{children}</div>
+      <label htmlFor={htmlFor} className="block text-xs font-medium uppercase tracking-wide text-slate-400">
+        {label}
+      </label>
+      {children}
     </div>
   )
 }
 
 function CampaignPreviewScreen({ campaign, onApprove, onCancel, approving }) {
-  const { estimatedSpend } = campaign
+  const [draft, setDraft] = useState(campaign)
+  const [budgetInput, setBudgetInput] = useState(() => String(parseBudgetAmount(campaign.budget) ?? ''))
+  const [budgetError, setBudgetError] = useState(null)
   const [selectedChannelIds, setSelectedChannelIds] = useState(() =>
     defaultSelectedChannels(campaign.channels),
   )
   const [showConfirm, setShowConfirm] = useState(false)
 
+  useEffect(() => {
+    setDraft(campaign)
+    setBudgetInput(String(parseBudgetAmount(campaign.budget) ?? ''))
+    setBudgetError(null)
+    setSelectedChannelIds(defaultSelectedChannels(campaign.channels))
+  }, [campaign])
+
   const selectedLabels = getChannelLabels(selectedChannelIds)
-  const canProceed = selectedChannelIds.length > 0
+  const canProceed = selectedChannelIds.length > 0 && !budgetError && budgetInput.trim() !== ''
+
+  function updateDraft(field, value) {
+    setDraft((prev) => ({ ...prev, [field]: value }))
+  }
+
+  function handleBudgetChange(value) {
+    setBudgetInput(value)
+    const amount = parseBudgetAmount(value)
+    if (!amount) {
+      setBudgetError('Enter a valid budget amount')
+      return
+    }
+    setBudgetError(null)
+    const budget = formatBudget(amount)
+    const estimatedSpend = recalculateEstimatedSpend(amount, draft.estimatedSpend.durationDays)
+    setDraft((prev) => ({ ...prev, budget, estimatedSpend }))
+  }
 
   function handleRequestApprove() {
     if (!canProceed) return
@@ -33,8 +69,10 @@ function CampaignPreviewScreen({ campaign, onApprove, onCancel, approving }) {
   }
 
   function handleConfirmLaunch() {
-    onApprove(selectedChannelIds)
+    onApprove(selectedChannelIds, draft)
   }
+
+  const { estimatedSpend } = draft
 
   return (
     <>
@@ -52,7 +90,8 @@ function CampaignPreviewScreen({ campaign, onApprove, onCancel, approving }) {
                 Full campaign preview
               </h2>
               <p className="mt-1 text-sm text-slate-600">
-                Review structure, pick channels, then explicitly confirm before any spend.
+                Edit copy, targeting, and budget, pick channels, then explicitly confirm before any
+                spend.
               </p>
             </div>
             <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
@@ -84,18 +123,17 @@ function CampaignPreviewScreen({ campaign, onApprove, onCancel, approving }) {
             </div>
           </div>
           <p className="mt-4 text-xs text-slate-400">
-            Budget cap: {campaign.budget} · Estimates based on AI pacing model; actual spend may
-            vary.
+            Budget cap: {draft.budget} · Estimates update as you edit budget; actual spend may vary.
           </p>
         </div>
 
         <div className="space-y-6 px-6 py-6">
           <div className="flex flex-wrap items-center gap-3">
-            <h3 className="text-lg font-semibold text-slate-900">{campaign.name}</h3>
+            <h3 className="text-lg font-semibold text-slate-900">{draft.name}</h3>
             <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${platformStyles[campaign.platform] ?? 'bg-slate-100 text-slate-600'}`}
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${platformStyles[draft.platform] ?? 'bg-slate-100 text-slate-600'}`}
             >
-              {campaign.platform}
+              {draft.platform}
             </span>
           </div>
 
@@ -107,20 +145,63 @@ function CampaignPreviewScreen({ campaign, onApprove, onCancel, approving }) {
           </div>
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <PreviewField label="Total budget">{campaign.budget}</PreviewField>
-            <PreviewField label="Target audience">{campaign.audience}</PreviewField>
-            <PreviewField label="Targeting">{campaign.targeting}</PreviewField>
+            <EditableField label="Total budget" htmlFor="preview-budget">
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  $
+                </span>
+                <input
+                  id="preview-budget"
+                  type="number"
+                  min="1"
+                  step="100"
+                  value={budgetInput}
+                  onChange={(e) => handleBudgetChange(e.target.value)}
+                  className={`${inputClassName} pl-7`}
+                />
+              </div>
+              {budgetError && (
+                <p className="mt-1 text-xs text-red-600" role="alert">
+                  {budgetError}
+                </p>
+              )}
+            </EditableField>
+
+            <EditableField label="Target audience" htmlFor="preview-audience">
+              <input
+                id="preview-audience"
+                type="text"
+                value={draft.audience}
+                onChange={(e) => updateDraft('audience', e.target.value)}
+                className={inputClassName}
+              />
+            </EditableField>
+
+            <EditableField label="Targeting" htmlFor="preview-targeting">
+              <input
+                id="preview-targeting"
+                type="text"
+                value={draft.targeting}
+                onChange={(e) => updateDraft('targeting', e.target.value)}
+                className={inputClassName}
+              />
+            </EditableField>
           </div>
 
-          <PreviewField label="Ad copy">
-            <p className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 italic leading-relaxed">
-              {campaign.adCopy}
-            </p>
-          </PreviewField>
+          <EditableField label="Ad copy" htmlFor="preview-ad-copy">
+            <textarea
+              id="preview-ad-copy"
+              value={draft.adCopy}
+              onChange={(e) => updateDraft('adCopy', e.target.value)}
+              rows={4}
+              className={`${inputClassName} resize-y leading-relaxed`}
+            />
+          </EditableField>
 
-          <PreviewField label="Original goal">
-            <p className="text-slate-600">{campaign.goal}</p>
-          </PreviewField>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Original goal</p>
+            <p className="mt-1 text-sm text-slate-600">{draft.goal}</p>
+          </div>
         </div>
 
         <div className="flex flex-wrap justify-end gap-3 border-t border-slate-200 bg-slate-50 px-6 py-4">
@@ -145,7 +226,7 @@ function CampaignPreviewScreen({ campaign, onApprove, onCancel, approving }) {
 
       {showConfirm && (
         <ApproveConfirmModal
-          campaign={campaign}
+          campaign={draft}
           selectedChannelLabels={selectedLabels}
           onConfirm={handleConfirmLaunch}
           onClose={() => setShowConfirm(false)}

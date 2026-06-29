@@ -3,9 +3,9 @@
 Divides the remaining PRD features between the two of us so we can build in
 parallel and merge cleanly (same approach that worked for the login system).
 
-**Current state of `main`:** the dashboard + login are **mock UI only** — there
-is no backend, no AI agent, and no real OAuth yet. Everything below is that
-missing work, pulled from [`PRD.md`](PRD.md) §3.
+**Current state:** Adedoyin's frontend cockpit is **largely complete (🟡 mock-backed)** —
+all flows call the shared API contract via `src/api/campaigns.js` and the Vite mock
+plugin. Erasmo's backend, real OAuth, and server-side guardrails are still outstanding.
 
 ### Owners
 - 🧠 **Erasmo** — AI agent, backend, integrations → new dirs `/backend`, `/agent`
@@ -22,24 +22,24 @@ Everything in `/src`. Build against a **mock JSON** of the API contract (below)
 until the backend is live, then just swap the fetch URL.
 
 ### Core loop: brief → launch
-- [ ] `[P0]` Wire the **"Run Agent"** button in `GoalInput.jsx` to call `POST /campaigns/generate` (it currently does nothing — 🟡)
-- [ ] `[P0]` Build the campaign **review screen** — show the AI-generated structure before anything launches
-- [ ] `[P1]` Make AI fields **editable** (copy, targeting, budget) before approval
-- [ ] `[P0]` **Preview** screen: full campaign + estimated spend
-- [ ] `[P0]` **Approve-before-spend** confirm (nothing launches without an explicit click)
-- [ ] `[P1]` Multi-channel launch UI (pick connected channels)
-- [ ] `[P2]` Save briefs as reusable templates
+- [x] `[P0]` Wire the **"Run Agent"** button in `GoalInput.jsx` to call `POST /campaigns/generate` ✅ 🟡
+- [x] `[P0]` Build the campaign **review screen** — show the AI-generated structure before anything launches ✅ 🟡 (`CampaignPreview.jsx` — pre-launch review)
+- [x] `[P1]` Make AI fields **editable** (copy, targeting, budget) before approval ✅ 🟡 (`CampaignPreview.jsx`)
+- [x] `[P0]` **Preview** screen: full campaign + estimated spend ✅ 🟡
+- [x] `[P0]` **Approve-before-spend** confirm (nothing launches without an explicit click) ✅ 🟡 (`ApproveConfirmModal.jsx`)
+- [x] `[P1]` Multi-channel launch UI (pick connected channels) ✅ 🟡 (`ChannelSelector.jsx`)
+- [x] `[P2]` Save briefs as reusable templates ✅ 🟡 (`briefTemplates.js` + `GoalInput.jsx`)
 
 ### Performance & reporting
-- [ ] `[P0]` Replace `mockCampaigns.js` with live data from `GET /campaigns` (🟡 currently 6 hardcoded cards)
-- [ ] `[P0]` Optimization-suggestions UI — render the agent's plain-language suggestions
-- [ ] `[P1]` Impact-story display — render the indexed summary the backend generates
+- [x] `[P0]` Replace `mockCampaigns.js` with live data from `GET /campaigns` ✅ 🟡 (Dashboard loads via API; mock plugin still serves data)
+- [x] `[P0]` Optimization-suggestions UI — render the agent's plain-language suggestions ✅ 🟡 (`OptimizationSuggestions.jsx`)
+- [x] `[P1]` Impact-story display — render the indexed summary the backend generates ✅ 🟡 (`ImpactStoryPanel.jsx`)
 
 ### Marketing-lead view + guardrails (PRD Journey 2)
-- [ ] `[P0]` Marketing-lead dashboard view — results + spend in one place (role toggle)
-- [ ] `[P0]` Spend-cap input UI
-- [ ] `[P1]` Approval-threshold settings UI
-- [ ] `[P1]` Show the impact summary to the lead
+- [x] `[P0]` Marketing-lead dashboard view — results + spend in one place (role toggle) ✅ 🟡 (`RoleToggle.jsx`, `MarketingLeadDashboard.jsx`)
+- [x] `[P0]` Spend-cap input UI ✅ 🟡 (`GuardrailsPanel.jsx`, `guardrails.js`)
+- [x] `[P1]` Approval-threshold settings UI ✅ 🟡 (`GuardrailsPanel.jsx`)
+- [x] `[P1]` Show the impact summary to the lead ✅ 🟡 (portfolio impact story on lead view)
 
 ---
 
@@ -84,8 +84,8 @@ The **brief → review → approve** vertical is the product's core reason to ex
 (PRD §3, the P0 critical path):
 
 1. **Erasmo:** `POST /campaigns/generate` returns a campaign structure.
-2. **Adedoyin:** review + approve screen, built against the mock contract.
-3. Ship that, then add live data + optimization.
+2. **Adedoyin:** review + approve screen, built against the mock contract. ✅ 🟡
+3. Ship that, then add live data + optimization. ✅ 🟡 (frontend done; backend pending)
 
 ---
 
