@@ -1,28 +1,95 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import GoalInput from './GoalInput'
 import CampaignPreview from './CampaignPreview'
 import CampaignGrid from './CampaignGrid'
-import mockCampaigns from '../data/mockCampaigns'
+import OptimizationSuggestions from './OptimizationSuggestions'
+import ImpactStoryPanel from './ImpactStoryPanel'
+import { fetchCampaigns, fetchImpactStory } from '../api/campaigns'
 import { previewToCampaign } from '../data/campaignTypes'
 
 function Dashboard() {
-  const [campaigns, setCampaigns] = useState(mockCampaigns)
+  const [campaigns, setCampaigns] = useState([])
+  const [suggestions, setSuggestions] = useState([])
+  const [campaignsLoading, setCampaignsLoading] = useState(true)
+  const [campaignsError, setCampaignsError] = useState(null)
+
   const [preview, setPreview] = useState(null)
   const [approving, setApproving] = useState(false)
+
+  const [selectedCampaignId, setSelectedCampaignId] = useState(null)
+  const [impactStory, setImpactStory] = useState(null)
+  const [impactLoading, setImpactLoading] = useState(false)
+  const [impactError, setImpactError] = useState(null)
+
+  const loadCampaigns = useCallback(async () => {
+    setCampaignsLoading(true)
+    setCampaignsError(null)
+    try {
+      const data = await fetchCampaigns()
+      setCampaigns(data.campaigns ?? [])
+      setSuggestions(data.suggestions ?? [])
+    } catch (err) {
+      setCampaignsError(err instanceof Error ? err.message : 'Failed to load campaigns')
+    } finally {
+      setCampaignsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadCampaigns()
+  }, [loadCampaigns])
+
+  useEffect(() => {
+    if (!selectedCampaignId) {
+      setImpactStory(null)
+      return
+    }
+
+    let cancelled = false
+    setImpactLoading(true)
+    setImpactError(null)
+
+    fetchImpactStory(selectedCampaignId)
+      .then((data) => {
+        if (!cancelled) setImpactStory(data.impactStory)
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setImpactError(err instanceof Error ? err.message : 'Failed to load impact story')
+          setImpactStory(null)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setImpactLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedCampaignId])
 
   function handleApprove(selectedChannelIds) {
     if (!preview) return
     setApproving(true)
-    setTimeout(() => {
-      setCampaigns((prev) => [previewToCampaign(preview, selectedChannelIds), ...prev])
+    setTimeout(async () => {
+      const newCampaign = previewToCampaign(preview, selectedChannelIds)
+      setCampaigns((prev) => [newCampaign, ...prev])
       setPreview(null)
       setApproving(false)
+      try {
+        const data = await fetchCampaigns()
+        setSuggestions(data.suggestions ?? [])
+      } catch {
+        // Keep local campaigns; suggestions stay stale until next full load
+      }
     }, 400)
   }
 
   function handleCancel() {
     setPreview(null)
   }
+
+  const selectedCampaignName = campaigns.find((c) => c.id === selectedCampaignId)?.name
 
   return (
     <div className="min-h-screen bg-slate-50 p-8">
@@ -43,7 +110,24 @@ function Dashboard() {
           />
         )}
 
-        <CampaignGrid campaigns={campaigns} />
+        <OptimizationSuggestions suggestions={suggestions} loading={campaignsLoading} />
+
+        <CampaignGrid
+          campaigns={campaigns}
+          loading={campaignsLoading}
+          error={campaignsError}
+          selectedCampaignId={selectedCampaignId}
+          onSelectCampaign={setSelectedCampaignId}
+        />
+
+        {(selectedCampaignId || impactLoading) && (
+          <ImpactStoryPanel
+            impactStory={impactStory}
+            campaignName={selectedCampaignName}
+            loading={impactLoading}
+            error={impactError}
+          />
+        )}
       </div>
     </div>
   )

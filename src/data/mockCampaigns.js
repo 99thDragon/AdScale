@@ -1,4 +1,6 @@
 /**
+ * Seed data for the dev mock GET /campaigns endpoint.
+ * Production uses live data from the backend — do not import in UI components.
  * @typedef {{ id: string, name: string, platform: string, status: string, budgetSpent: string, ctr: string, conversions: number }} Campaign
  */
 
