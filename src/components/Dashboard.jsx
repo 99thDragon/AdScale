@@ -1,8 +1,11 @@
+import { useState } from 'react'
 import GoalInput from './GoalInput'
 import CampaignGrid from './CampaignGrid'
 import mockCampaigns from '../data/mockCampaigns'
 
 function Dashboard() {
+  const [campaigns, setCampaigns] = useState(mockCampaigns)
+
   return (
     <div className="min-h-screen bg-slate-50 p-8">
       <div className="mx-auto max-w-6xl">
@@ -11,9 +14,9 @@ function Dashboard() {
           <p className="mt-1 text-slate-500">Autonomous Ad Manager Dashboard</p>
         </header>
 
-        <GoalInput />
+        <GoalInput onCampaignsGenerated={setCampaigns} />
 
-        <CampaignGrid campaigns={mockCampaigns} />
+        <CampaignGrid campaigns={campaigns} />
       </div>
     </div>
   )
