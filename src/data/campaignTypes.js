@@ -1,3 +1,5 @@
+import { CONNECTED_CHANNELS } from './connectedChannels.js'
+
 /**
  * @typedef {{ id: string, name: string, platform: string, status: string, budgetSpent: string, ctr: string, conversions: number }} Campaign
  */
@@ -25,12 +27,18 @@
  * }} CampaignPreview
  */
 
-/** @param {CampaignPreview} preview */
-export function previewToCampaign(preview) {
+/** @param {CampaignPreview} preview @param {string[]} [selectedChannelIds] */
+export function previewToCampaign(preview, selectedChannelIds = []) {
+  const channels = CONNECTED_CHANNELS.filter((c) => selectedChannelIds.includes(c.id))
+  const platforms = [...new Set(channels.map((c) => c.platform))]
+  const platformLabel = platforms.length > 1 ? platforms.join(' + ') : preview.platform
+  const channelSuffix =
+    channels.length > 0 ? ` (${channels.length} channel${channels.length > 1 ? 's' : ''})` : ''
+
   return {
     id: preview.id,
-    name: preview.name,
-    platform: preview.platform,
+    name: `${preview.name}${channelSuffix}`,
+    platform: platformLabel,
     status: 'Active',
     budgetSpent: `$0 / ${preview.budget}`,
     ctr: '—',

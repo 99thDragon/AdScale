@@ -10,11 +10,11 @@ function Dashboard() {
   const [preview, setPreview] = useState(null)
   const [approving, setApproving] = useState(false)
 
-  function handleApprove() {
+  function handleApprove(selectedChannelIds) {
     if (!preview) return
     setApproving(true)
     setTimeout(() => {
-      setCampaigns((prev) => [previewToCampaign(preview), ...prev])
+      setCampaigns((prev) => [previewToCampaign(preview, selectedChannelIds), ...prev])
       setPreview(null)
       setApproving(false)
     }, 400)
