@@ -13,7 +13,6 @@ function Dashboard() {
   function handleApprove() {
     if (!draft) return
     setApproving(true)
-    // Simulate staging delay before budget is committed
     setTimeout(() => {
       setCampaigns((prev) => [draftToCampaign(draft), ...prev])
       setDraft(null)
