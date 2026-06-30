@@ -16,8 +16,14 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv()  # read backend/.env if present (ANTHROPIC_API_KEY, etc.)
 
 from . import store  # noqa: E402  (import after load_dotenv)
-from .agent import generate_campaign_draft  # noqa: E402
-from .models import Campaign, GenerateRequest, ImpactStory, StatusResponse  # noqa: E402
+from .agent import generate_campaign_draft, suggest_optimizations  # noqa: E402
+from .models import (  # noqa: E402
+    Campaign,
+    GenerateRequest,
+    ImpactStory,
+    OptimizationSuggestion,
+    StatusResponse,
+)
 
 app = FastAPI(title="AdScale API", version="0.1.0")
 
@@ -71,6 +77,15 @@ def launch(cid: str):
         )
     campaign = store.set_status(cid, "active")
     return StatusResponse(id=campaign.id, status=campaign.status)
+
+
+@app.get("/campaigns/{cid}/optimizations", response_model=list[OptimizationSuggestion])
+def optimizations(cid: str):
+    """[P0] AI optimization suggestions with plain-language explanations."""
+    campaign = store.get_campaign(cid)
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    return suggest_optimizations(campaign)
 
 
 @app.get("/campaigns/{cid}/impact-story", response_model=ImpactStory)

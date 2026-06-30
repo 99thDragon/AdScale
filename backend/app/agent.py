@@ -13,7 +13,14 @@ from __future__ import annotations
 
 import os
 
-from .models import AdCreative, Audience, Budget, CampaignDraft
+from .models import (
+    AdCreative,
+    Audience,
+    Budget,
+    Campaign,
+    CampaignDraft,
+    OptimizationSuggestion,
+)
 
 # Default to the latest cost-effective Claude model; override via env if needed.
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
@@ -97,14 +104,14 @@ def generate_campaign_draft(goal: str) -> CampaignDraft:
         tool_choice={"type": "tool", "name": "draft_campaign"},
         messages=[{"role": "user", "content": goal}],
     )
-    return CampaignDraft.model_validate(_extract_tool_input(resp))
+    return CampaignDraft.model_validate(_extract_tool_input(resp, "draft_campaign"))
 
 
-def _extract_tool_input(resp) -> dict:
+def _extract_tool_input(resp, tool_name: str) -> dict:
     for block in resp.content:
-        if getattr(block, "type", None) == "tool_use" and block.name == "draft_campaign":
+        if getattr(block, "type", None) == "tool_use" and block.name == tool_name:
             return block.input
-    raise ValueError("Model did not return a draft_campaign tool call")
+    raise ValueError(f"Model did not return a {tool_name} tool call")
 
 
 def _mock_draft(goal: str) -> CampaignDraft:
@@ -129,3 +136,99 @@ def _mock_draft(goal: str) -> CampaignDraft:
             )
         ],
     )
+
+
+# --- Optimization suggestions ----------------------------------------------
+
+OPTIMIZE_SYSTEM_PROMPT = (
+    "You are AdScale's optimization agent. Given a campaign (its draft and any "
+    "live performance), suggest 2-4 concrete, prioritized optimizations an "
+    "advertising manager can act on. Each suggestion needs a short action title "
+    "and a plain-language rationale (1-2 sentences). Always call the "
+    "suggest_optimizations tool."
+)
+
+OPTIMIZE_TOOL = {
+    "name": "suggest_optimizations",
+    "description": "Return prioritized optimization suggestions with plain-language explanations.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "suggestions": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "title": {
+                            "type": "string",
+                            "description": "Short action, e.g. 'Shift budget toward Meta'",
+                        },
+                        "rationale": {
+                            "type": "string",
+                            "description": "Plain-language explanation, 1-2 sentences",
+                        },
+                        "impact": {"type": "string", "enum": ["high", "medium", "low"]},
+                    },
+                    "required": ["title", "rationale", "impact"],
+                },
+            }
+        },
+        "required": ["suggestions"],
+    },
+}
+
+
+def suggest_optimizations(campaign: Campaign) -> list[OptimizationSuggestion]:
+    """Return AI optimization suggestions for a campaign."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key:
+        return _mock_optimizations(campaign)
+
+    from anthropic import Anthropic
+
+    client = Anthropic(api_key=api_key)
+    resp = client.messages.create(
+        model=MODEL,
+        max_tokens=1024,
+        system=OPTIMIZE_SYSTEM_PROMPT,
+        tools=[OPTIMIZE_TOOL],
+        tool_choice={"type": "tool", "name": "suggest_optimizations"},
+        messages=[{"role": "user", "content": f"Campaign:\n{campaign.model_dump_json(indent=2)}"}],
+    )
+    data = _extract_tool_input(resp, "suggest_optimizations")
+    return [OptimizationSuggestion.model_validate(s) for s in data["suggestions"]]
+
+
+def _mock_optimizations(campaign: Campaign) -> list[OptimizationSuggestion]:
+    """Deterministic, campaign-aware suggestions used when no API key is set."""
+    draft = campaign.draft
+    lead_channel = draft.channels[0] if draft.channels else "Meta"
+    top_interest = draft.audience.interests[0] if draft.audience.interests else "your core interest"
+    return [
+        OptimizationSuggestion(
+            title=f"Shift ~20% of budget toward {lead_channel}",
+            rationale=(
+                f"{lead_channel} tends to deliver the strongest early results for "
+                f"{draft.objective} goals; concentrating spend there should lower "
+                "cost per result while you gather data."
+            ),
+            impact="high",
+        ),
+        OptimizationSuggestion(
+            title="Add a second ad variation",
+            rationale=(
+                "You currently have a single creative. A second headline/body "
+                "variation lets the platform optimize between them and avoids early "
+                "creative fatigue."
+            ),
+            impact="medium",
+        ),
+        OptimizationSuggestion(
+            title=f"Tighten targeting to '{top_interest}'",
+            rationale=(
+                "Narrowing from broad targeting focuses spend on the users most "
+                "likely to convert, improving efficiency."
+            ),
+            impact="medium",
+        ),
+    ]

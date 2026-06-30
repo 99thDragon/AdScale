@@ -55,6 +55,25 @@ def test_impact_story_after_launch():
     assert story.json()["summary"]
 
 
+def test_optimizations_returns_suggestions():
+    cid = client.post(
+        "/campaigns/generate", json={"goal": "Boost online course signups"}
+    ).json()["id"]
+
+    r = client.get(f"/campaigns/{cid}/optimizations")
+    assert r.status_code == 200
+    suggestions = r.json()
+    assert len(suggestions) >= 1
+    for s in suggestions:
+        assert s["title"]
+        assert s["rationale"]
+        assert s["impact"] in {"high", "medium", "low"}
+
+
+def test_optimizations_unknown_campaign_404():
+    assert client.get("/campaigns/does-not-exist/optimizations").status_code == 404
+
+
 def test_list_includes_created_campaigns():
     before = len(client.get("/campaigns").json())
     client.post("/campaigns/generate", json={"goal": "Promote a new podcast"})

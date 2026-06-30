@@ -31,6 +31,7 @@ uvicorn app.main:app --reload --port 8000
 | `GET /campaigns` | list all campaigns + performance |
 | `POST /campaigns/{id}/approve` | explicit approval (required before launch) |
 | `POST /campaigns/{id}/launch` | launch — 409 if not yet approved |
+| `GET /campaigns/{id}/optimizations` | AI optimization suggestions (plain-language) |
 | `GET /campaigns/{id}/impact-story` | indexed impact summary |
 
 ### `Campaign` shape (what the frontend consumes)
@@ -59,8 +60,8 @@ uvicorn app.main:app --reload --port 8000
 
 - [x] `POST /campaigns/generate` (LLM goal → structured draft) — #20
 - [x] Approve-before-spend enforced on launch, API side (supports #9)
+- [x] AI optimization suggestions + explanations — #21
 - [ ] Real Google/Meta OAuth — #19
-- [ ] AI optimization suggestions + explanations — #21
 - [ ] Ad-platform connectors + live performance — #24
 - [ ] Server-side spend-cap enforcement — #25
 - [ ] LLM-indexed impact story — #23

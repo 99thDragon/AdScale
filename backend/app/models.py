@@ -69,3 +69,11 @@ class ImpactStory(BaseModel):
     id: str
     summary: str
     headline_metric: str | None = None
+
+
+class OptimizationSuggestion(BaseModel):
+    """A single AI optimization suggestion with a plain-language explanation."""
+
+    title: str  # short action, e.g. "Shift budget toward Meta"
+    rationale: str  # why, in plain language
+    impact: str = "medium"  # high | medium | low
