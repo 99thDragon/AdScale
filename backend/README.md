@@ -57,10 +57,11 @@ uvicorn app.main:app --reload --port 8000
 
 ## Status / TODO (backend issues)
 
-- [x] `POST /campaigns/generate` (LLM goal → structured draft) — #17
-- [x] Approve-before-spend enforced on launch — #8 (API side)
-- [ ] Real Google/Meta OAuth — #16
-- [ ] Ad-platform connectors + live performance — #21
-- [ ] Server-side spend-cap enforcement — #22
-- [ ] LLM-indexed impact story — #20
-- [ ] Persist to a real DB (Supabase/Postgres) — #15
+- [x] `POST /campaigns/generate` (LLM goal → structured draft) — #20
+- [x] Approve-before-spend enforced on launch, API side (supports #9)
+- [ ] Real Google/Meta OAuth — #19
+- [ ] AI optimization suggestions + explanations — #21
+- [ ] Ad-platform connectors + live performance — #24
+- [ ] Server-side spend-cap enforcement — #25
+- [ ] LLM-indexed impact story — #23
+- [ ] Persist to a real DB (Supabase/Postgres) — #18
