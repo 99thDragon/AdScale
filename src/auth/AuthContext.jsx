@@ -1,33 +1,55 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 
+import { isSupabaseEnabled, supabase } from '../lib/supabaseClient'
+
 /**
  * AuthContext — single source of truth for who is signed in.
  *
- * Per the PRD (section 6b, Data Minimization), AdScale does NOT store
- * usernames or passwords. Authentication is OAuth-based: the user signs in by
- * connecting their Google or Meta ad account. For the MVP this provider uses a
- * mock sign-in persisted to localStorage so the UI can be built before the
- * backend exists — mirroring how the dashboard was built static-first.
+ * Per the PRD (section 6b), AdScale stores no passwords: auth is OAuth via the
+ * user's Google / Meta account, brokered by Supabase Auth.
  *
- * TO GO LIVE: replace the bodies of `signInWithGoogle` / `signInWithMeta` with
- * a real OAuth call, e.g. Supabase:
+ * - With Supabase configured (VITE_SUPABASE_URL + VITE_SUPABASE_PUBLISHABLE_KEY),
+ *   sign-in is a real OAuth redirect and the session is restored on return.
+ * - Without it, we fall back to a localStorage mock so the UI still runs.
  *
- *   await supabase.auth.signInWithOAuth({ provider: 'google' })
- *
- * Nothing else in the app needs to change — every component reads auth through
- * the `useAuth()` hook.
+ * Every component reads auth through `useAuth()`, so nothing else changes.
  */
 
 const AuthContext = createContext(null)
-
 const STORAGE_KEY = 'adscale.auth.user'
+
+/** Normalize a Supabase session into the small user shape the UI expects. */
+function toUser(session) {
+  const u = session?.user
+  if (!u) return null
+  const meta = u.user_metadata ?? {}
+  return {
+    name: meta.full_name ?? meta.name ?? u.email,
+    email: u.email,
+    provider: u.app_metadata?.provider ?? 'supabase',
+    avatar: meta.avatar_url ?? null,
+  }
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Restore any existing session on first load.
   useEffect(() => {
+    if (isSupabaseEnabled) {
+      // Restore the current session, then keep it in sync (covers the OAuth
+      // redirect back from Google/Meta and sign-out in other tabs).
+      supabase.auth.getSession().then(({ data }) => {
+        setUser(toUser(data.session))
+        setLoading(false)
+      })
+      const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+        setUser(toUser(session))
+      })
+      return () => sub.subscription.unsubscribe()
+    }
+
+    // Mock fallback.
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) setUser(JSON.parse(saved))
@@ -37,7 +59,7 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }, [])
 
-  function persist(nextUser) {
+  function persistMock(nextUser) {
     setUser(nextUser)
     if (nextUser) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser))
@@ -46,21 +68,31 @@ export function AuthProvider({ children }) {
     }
   }
 
-  // --- OAuth seam -----------------------------------------------------------
-  // MOCK stand-ins for the real OAuth redirect. Swap these two functions for
-  // Supabase / Google / Meta OAuth when the backend is ready; the rest of the
-  // app is already wired to them.
-  async function signInWithGoogle() {
-    persist({ name: 'Google Advertiser', email: 'manager@gmail.com', provider: 'google' })
+  async function signInWith(provider, mockUser) {
+    if (isSupabaseEnabled) {
+      // Redirects to the provider; onAuthStateChange sets the user on return.
+      await supabase.auth.signInWithOAuth({
+        provider,
+        options: { redirectTo: window.location.origin },
+      })
+      return
+    }
+    persistMock(mockUser)
   }
 
-  async function signInWithMeta() {
-    persist({ name: 'Meta Advertiser', email: 'manager@business.fb', provider: 'meta' })
-  }
-  // -------------------------------------------------------------------------
+  const signInWithGoogle = () =>
+    signInWith('google', { name: 'Google Advertiser', email: 'manager@gmail.com', provider: 'google' })
 
-  function signOut() {
-    persist(null)
+  const signInWithMeta = () =>
+    signInWith('facebook', { name: 'Meta Advertiser', email: 'manager@business.fb', provider: 'meta' })
+
+  async function signOut() {
+    if (isSupabaseEnabled) {
+      await supabase.auth.signOut()
+      setUser(null)
+      return
+    }
+    persistMock(null)
   }
 
   const value = { user, loading, signInWithGoogle, signInWithMeta, signOut }
