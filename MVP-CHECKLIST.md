@@ -3,9 +3,11 @@
 Divides the remaining PRD features between the two of us so we can build in
 parallel and merge cleanly (same approach that worked for the login system).
 
-**Current state:** Adedoyin's frontend cockpit is **largely complete (🟡 mock-backed)** —
-all flows call the shared API contract via `src/api/campaigns.js` and the Vite mock
-plugin. Erasmo's backend, real OAuth, and server-side guardrails are still outstanding.
+**Current state — MVP complete, all merged to `main`:**
+- ✅ Frontend cockpit complete **and wired to the live backend** via `src/api/campaigns.js` (set `VITE_API_BASE_URL`, else it falls back to mock data).
+- ✅ Backend complete — FastAPI + SQLite (Postgres/Supabase-swappable), LLM campaign agent, guardrails, indexed impact story (15 pytest tests pass).
+- ✅ Real Google login via Supabase Auth.
+- **Only remaining:** swap the mock ad-platform connector for real Google Ads / Meta API calls (#24) and the ad-platform token lifecycle that depends on it (#27).
 
 ### Owners
 - 🧠 **Erasmo** — AI agent, backend, integrations → new dirs `/backend`, `/agent`
@@ -48,20 +50,20 @@ until the backend is live, then just swap the fetch URL.
 New dirs (`/backend`, `/agent`) — no overlap with `/src`.
 
 ### Foundation
-- [ ] `[P0]` Stand up backend (FastAPI or Supabase) + DB (goals, campaigns, tokens)
-- [ ] `[P0]` Real Google/Meta **OAuth** — drop into the seam already in `src/auth/AuthContext.jsx` (`signInWithGoogle` / `signInWithMeta`)
+- [x] `[P0]` Stand up backend (FastAPI) + DB — SQLite, `DATABASE_URL`-swappable to Postgres/Supabase ✅ #18
+- [x] `[P0]` Real Google **OAuth** via Supabase Auth (`AuthContext.jsx` + `src/lib/supabaseClient.js`) ✅ #19
 
 ### AI agent
-- [ ] `[P0]` `POST /campaigns/generate` — LLM parses a plain-language goal → structured campaign JSON (offer, audience, channels, budget)
-- [ ] `[P0]` AI optimization suggestions with plain-language explanations
-- [ ] `[P1]` Auto-optimization within budget guardrails
-- [ ] `[P1]` Indexed **"impact story"** generation
+- [x] `[P0]` `POST /campaigns/generate` — LLM (Claude tool use) → structured campaign JSON ✅ #20
+- [x] `[P0]` AI optimization suggestions with plain-language explanations ✅ #21
+- [x] `[P1]` Auto-optimization within budget guardrails ✅ #22
+- [x] `[P1]` Indexed **"impact story"** generation ✅ #23
 
 ### Integration + safety
-- [ ] `[P0]` Ad-platform connectors (Google Ads / Meta API): launch + pull live performance
-- [ ] `[P0]` Server-side **spend-cap enforcement** (agent cannot exceed the cap)
-- [ ] `[P1]` Approval thresholds for spend above a set amount
-- [ ] `[P0]` Token lifecycle: minimal scope + expiry/revocation (PRD §6c)
+- [~] `[P0]` Ad-platform connectors (Google Ads / Meta API): launch + pull live performance — 🟡 **mock done; real API pending** #24
+- [x] `[P0]` Server-side **spend-cap enforcement** (agent cannot exceed the cap) ✅ #25
+- [x] `[P1]` Approval thresholds for spend above a set amount ✅ #26
+- [~] `[P0]` Token lifecycle: minimal scope + expiry/revocation (PRD §6c) — 🟡 **login handled by Supabase; ad-platform pending** #27 (needs #24)
 
 ---
 
@@ -83,9 +85,9 @@ GET  /campaigns/:id/impact-story        → { indexed summary }
 The **brief → review → approve** vertical is the product's core reason to exist
 (PRD §3, the P0 critical path):
 
-1. **Erasmo:** `POST /campaigns/generate` returns a campaign structure.
-2. **Adedoyin:** review + approve screen, built against the mock contract. ✅ 🟡
-3. Ship that, then add live data + optimization. ✅ 🟡 (frontend done; backend pending)
+1. **Erasmo:** `POST /campaigns/generate` returns a campaign structure. ✅
+2. **Adedoyin:** review + approve screen, built against the contract. ✅
+3. Ship that, then add live data + optimization. ✅ (backend live + wired end-to-end)
 
 ---
 
