@@ -37,6 +37,19 @@ uvicorn app.main:app --reload --port 8000
 | `GET /campaigns/{id}/optimizations` | AI optimization suggestions (plain-language) |
 | `POST /campaigns/{id}/auto-optimize` | apply top optimizations within the guardrail |
 | `GET /campaigns/{id}/impact-story` | indexed impact summary |
+| `GET /platforms` | connected ad platforms + token status |
+| `PUT /platforms/{platform}/token` | deposit an OAuth token (`meta` / `google_ads`) |
+| `POST /platforms/{platform}/revoke` | revoke a platform connection |
+
+### Ad-platform connectors + token lifecycle (#24 / #27)
+
+`launch`/`sync` dispatch through `connectors.select_connector(campaign)`: the
+**real** connector runs when its platform has a valid token **and** is enabled,
+otherwise the **mock** (current default). OAuth tokens are managed by
+`tokens.py` — minimal scope, expiry, refresh, revocation, and **encrypted at
+rest** when `TOKEN_ENCRYPTION_KEY` is set (PRD §6c). Going live per platform is a
+bounded change: implement the real `launch`/`refresh` in `connectors.py` and set
+`enabled = True`.
 
 ### `Campaign` shape (what the frontend consumes)
 
@@ -71,6 +84,7 @@ uvicorn app.main:app --reload --port 8000
 - [x] Auto-optimization within guardrails — #22
 - [x] LLM-indexed impact story — #23
 - [x] Approval thresholds for high spend — #26
-- [ ] **Real Google/Meta OAuth — #19** (needs registered developer apps + credentials)
-- [ ] **OAuth token lifecycle — #27** (follows #19)
-- [ ] Swap mock connector for real Google Ads / Meta API calls — #24 (needs #19)
+- [x] Real Google login via Supabase Auth — #19
+- [x] OAuth token lifecycle — minimal scope, expiry, refresh, revoke, encrypted at rest — #27
+- [x] Connector seam (real-when-token, else mock) + `/platforms` endpoints — #24
+- [ ] Implement + enable the real Google Ads / Meta API calls — #24 (needs platform dev credentials + test ad account)

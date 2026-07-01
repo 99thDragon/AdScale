@@ -74,6 +74,26 @@ class LaunchRequest(BaseModel):
     confirm_high_spend: bool = False  # required when budget exceeds threshold (#26)
 
 
+class ConnectTokenRequest(BaseModel):
+    """Deposit an ad-platform OAuth token (issue #27)."""
+
+    access_token: str
+    refresh_token: str | None = None
+    expires_in: int | None = None  # seconds until the access token expires
+    scopes: str | None = None  # defaults to the platform's minimal scope
+    account_id: str | None = None  # e.g. Meta ad account id
+
+
+class PlatformStatus(BaseModel):
+    platform: str
+    connected: bool
+    account_id: str | None = None
+    scopes: str | None = None
+    expires_at: str | None = None
+    expired: bool | None = None
+    revoked: bool | None = None
+
+
 class StatusResponse(BaseModel):
     id: str
     status: str

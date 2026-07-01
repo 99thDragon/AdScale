@@ -17,7 +17,7 @@ load_dotenv()  # read backend/.env if present (ANTHROPIC_API_KEY, etc.)
 
 from fastapi import Body  # noqa: E402
 
-from . import connectors, store  # noqa: E402  (import after load_dotenv)
+from . import connectors, store, tokens  # noqa: E402  (import after load_dotenv)
 from .agent import (  # noqa: E402
     generate_campaign_draft,
     generate_impact_story,
@@ -28,11 +28,13 @@ from .models import (  # noqa: E402
     ApprovalThresholdRequest,
     AutoOptimizeResult,
     Campaign,
+    ConnectTokenRequest,
     GenerateRequest,
     ImpactStory,
     LaunchRequest,
     OptimizationSuggestion,
     Performance,
+    PlatformStatus,
     SpendCapRequest,
     StatusResponse,
 )
@@ -104,8 +106,9 @@ def launch(cid: str, req: LaunchRequest = Body(default=LaunchRequest())):
             ),
         )
     campaign = store.set_status(cid, "active")
-    # Dispatch to the ad-platform connector; spend is capped by the guardrail (#24/#25).
-    performance = connectors.launch(campaign, campaign.spend_cap)
+    # Dispatch to the selected connector (real if a token is connected, else mock);
+    # spend is capped by the guardrail (#24/#25).
+    performance = connectors.select_connector(campaign).launch(campaign, campaign.spend_cap)
     store.update_performance(cid, performance)
     return StatusResponse(id=campaign.id, status=campaign.status)
 
@@ -129,7 +132,8 @@ def sync_performance(cid: str):
         raise HTTPException(status_code=404, detail="campaign not found")
     if campaign.status != "active" or campaign.performance is None:
         raise HTTPException(status_code=409, detail="campaign is not live")
-    performance = connectors.refresh(campaign, campaign.performance, campaign.spend_cap)
+    connector = connectors.select_connector(campaign)
+    performance = connector.refresh(campaign, campaign.performance, campaign.spend_cap)
     return store.update_performance(cid, performance)
 
 
@@ -186,3 +190,39 @@ def impact_story(cid: str):
     if campaign is None:
         raise HTTPException(status_code=404, detail="campaign not found")
     return generate_impact_story(campaign)
+
+
+# --- Ad-platform connections / OAuth token lifecycle (issue #27) -------------
+
+
+@app.get("/platforms", response_model=list[PlatformStatus])
+def list_platforms():
+    """Connected ad platforms and their token status."""
+    return tokens.list_status()
+
+
+@app.put("/platforms/{platform}/token", response_model=PlatformStatus)
+def connect_platform(platform: str, req: ConnectTokenRequest):
+    """Deposit an OAuth token for a platform (this is where an OAuth callback
+    would land it). Scope defaults to the platform's minimal scope."""
+    if platform not in tokens.MINIMAL_SCOPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"unknown platform; expected one of {sorted(tokens.MINIMAL_SCOPES)}",
+        )
+    return tokens.save_token(
+        platform,
+        access_token=req.access_token,
+        refresh_token=req.refresh_token,
+        expires_in=req.expires_in,
+        scopes=req.scopes,
+        account_id=req.account_id,
+    )
+
+
+@app.post("/platforms/{platform}/revoke", response_model=PlatformStatus)
+def revoke_platform(platform: str):
+    """Revoke a platform connection (token can no longer be used)."""
+    if not tokens.revoke(platform):
+        raise HTTPException(status_code=404, detail="no token for platform")
+    return tokens.get_status(platform)
