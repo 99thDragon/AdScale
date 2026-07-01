@@ -1,5 +1,6 @@
 import { useAuth } from '../auth/AuthContext'
-import { btnSecondary, cardPad, pageHeading } from '../styles/ui'
+import { btnSecondary, cardPad } from '../styles/ui'
+import AppLogo from './AppLogo'
 
 function Login() {
   const { signInWithGoogle, signInWithMeta } = useAuth()
@@ -8,8 +9,8 @@ function Login() {
     <div className="flex min-h-screen items-center justify-center bg-canvas p-8">
       <div className={`${cardPad} w-full max-w-md`}>
         <header className="mb-8 text-center">
-          <h1 className={pageHeading}>AdScale AI</h1>
-          <p className="mt-1 text-sm text-muted">Autonomous Ad Manager</p>
+          <AppLogo size="lg" className="mx-auto" />
+          <p className="mt-3 text-sm text-muted">Autonomous Ad Manager</p>
         </header>
 
         <h2 className="mb-2 text-center text-xl font-semibold text-ink">Sign in to your account</h2>

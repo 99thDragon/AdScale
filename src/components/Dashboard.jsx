@@ -11,12 +11,11 @@ import DataFreshness from './DataFreshness'
 import DateRangeSelector from './DateRangeSelector'
 import GuardrailsPanel from './GuardrailsPanel'
 import MarketingLeadDashboard from './MarketingLeadDashboard'
+import AppLogo from './AppLogo'
 import { fetchCampaigns, fetchImpactStory } from '../api/campaigns'
 import { previewToCampaign } from '../data/campaignTypes'
 import { loadGuardrails, summarizeCampaigns } from '../data/guardrails'
 import { DEFAULT_DATE_RANGES } from '../data/dateRange'
-
-import { pageHeading } from '../styles/ui'
 
 function Dashboard() {
   const { user, signOut } = useAuth()
@@ -150,8 +149,8 @@ function Dashboard() {
       <div className="mx-auto max-w-6xl">
         <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className={pageHeading}>AdScale AI</h1>
-            <p className="mt-1 text-sm text-muted">
+            <AppLogo size="md" />
+            <p className="mt-2 text-sm text-muted">
               {role === 'lead'
                 ? 'Marketing lead — results & guardrails'
                 : 'Autonomous Ad Manager Dashboard'}
