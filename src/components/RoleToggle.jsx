@@ -5,7 +5,7 @@ const ROLES = [
 
 function RoleToggle({ role, onRoleChange }) {
   return (
-    <div className="flex rounded-lg border border-slate-200 bg-white p-1 shadow-sm">
+    <div className="flex rounded-lg border border-border bg-surface p-1">
       {ROLES.map(({ id, label }) => (
         <button
           key={id}
@@ -13,8 +13,8 @@ function RoleToggle({ role, onRoleChange }) {
           onClick={() => onRoleChange(id)}
           className={`rounded-md px-3 py-1.5 text-sm font-medium transition ${
             role === id
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-50'
+              ? 'bg-primary text-white'
+              : 'text-muted hover:bg-canvas hover:text-ink'
           }`}
         >
           {label}

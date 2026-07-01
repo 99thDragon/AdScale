@@ -28,6 +28,7 @@ function toUser(session) {
     email: u.email,
     provider: u.app_metadata?.provider ?? 'supabase',
     avatar: meta.avatar_url ?? null,
+    signedInAt: u.last_sign_in_at ?? u.created_at ?? null,
   }
 }
 
@@ -60,9 +61,12 @@ export function AuthProvider({ children }) {
   }, [])
 
   function persistMock(nextUser) {
-    setUser(nextUser)
-    if (nextUser) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextUser))
+    const enriched = nextUser
+      ? { ...nextUser, signedInAt: nextUser.signedInAt ?? new Date().toISOString() }
+      : null
+    setUser(enriched)
+    if (enriched) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(enriched))
     } else {
       localStorage.removeItem(STORAGE_KEY)
     }
@@ -81,7 +85,7 @@ export function AuthProvider({ children }) {
   }
 
   const signInWithGoogle = () =>
-    signInWith('google', { name: 'Google Advertiser', email: 'manager@gmail.com', provider: 'google' })
+    signInWith('google', { name: 'Profile', email: 'manager@gmail.com', provider: 'google' })
 
   const signInWithMeta = () =>
     signInWith('facebook', { name: 'Meta Advertiser', email: 'manager@business.fb', provider: 'meta' })

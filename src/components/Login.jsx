@@ -1,24 +1,19 @@
 import { useAuth } from '../auth/AuthContext'
+import { btnSecondary, cardPad, pageHeading } from '../styles/ui'
 
-/**
- * Login — OAuth sign-in screen. AdScale authenticates by connecting the user's
- * ad platform account (Google / Meta), so there is no password field by design.
- */
 function Login() {
   const { signInWithGoogle, signInWithMeta } = useAuth()
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 p-8">
-      <div className="w-full max-w-md rounded-xl bg-white p-8 shadow-md">
+    <div className="flex min-h-screen items-center justify-center bg-canvas p-8">
+      <div className={`${cardPad} w-full max-w-md`}>
         <header className="mb-8 text-center">
-          <h1 className="text-3xl font-bold text-slate-900">AdScale AI</h1>
-          <p className="mt-1 text-slate-500">Autonomous Ad Manager</p>
+          <h1 className={pageHeading}>AdScale AI</h1>
+          <p className="mt-1 text-sm text-muted">Autonomous Ad Manager</p>
         </header>
 
-        <h2 className="mb-2 text-center text-xl font-semibold text-slate-800">
-          Sign in to your account
-        </h2>
-        <p className="mb-8 text-center text-sm text-slate-500">
+        <h2 className="mb-2 text-center text-xl font-semibold text-ink">Sign in to your account</h2>
+        <p className="mb-8 text-center text-sm text-muted">
           AdScale connects directly to your ad platform — no separate password to manage.
         </p>
 
@@ -26,7 +21,7 @@ function Login() {
           <button
             type="button"
             onClick={signInWithGoogle}
-            className="flex w-full items-center justify-center gap-3 rounded-lg border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+            className={`${btnSecondary} flex w-full items-center justify-center gap-3`}
           >
             <GoogleIcon />
             Continue with Google Ads
@@ -35,16 +30,16 @@ function Login() {
           <button
             type="button"
             onClick={signInWithMeta}
-            className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#1877F2] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#166fe0]"
+            className="flex w-full items-center justify-center gap-3 rounded-lg bg-[#1877F2] px-6 py-3 text-sm font-semibold text-white transition hover:bg-[#166fe0]"
           >
             <MetaIcon />
             Continue with Meta
           </button>
         </div>
 
-        <p className="mt-8 text-center text-xs text-slate-400">
-          By continuing you authorize AdScale to manage campaigns on your connected ad
-          account. We never store your password.
+        <p className="mt-8 text-center text-xs text-subtle">
+          By continuing you authorize AdScale to manage campaigns on your connected ad account.
+          We never store your password.
         </p>
       </div>
     </div>

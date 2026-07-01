@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useAuth } from '../auth/AuthContext'
 import GoalInput from './GoalInput'
 import CampaignPreview from './CampaignPreview'
 import CampaignGrid from './CampaignGrid'
 import OptimizationSuggestions from './OptimizationSuggestions'
 import ImpactStoryPanel from './ImpactStoryPanel'
 import RoleToggle from './RoleToggle'
+import UserMenu from './UserMenu'
+import DataFreshness from './DataFreshness'
+import DateRangeSelector from './DateRangeSelector'
 import GuardrailsPanel from './GuardrailsPanel'
 import MarketingLeadDashboard from './MarketingLeadDashboard'
 import { fetchCampaigns, fetchImpactStory } from '../api/campaigns'
 import { previewToCampaign } from '../data/campaignTypes'
-import { loadGuardrails } from '../data/guardrails'
+import { loadGuardrails, summarizeCampaigns } from '../data/guardrails'
+import { DEFAULT_DATE_RANGES } from '../data/dateRange'
+
+import { pageHeading } from '../styles/ui'
 
 function Dashboard() {
+  const { user, signOut } = useAuth()
   const [role, setRole] = useState('manager')
   const [guardrails, setGuardrails] = useState(loadGuardrails)
 
@@ -32,6 +40,9 @@ function Dashboard() {
   const [leadImpactLoading, setLeadImpactLoading] = useState(false)
   const [leadImpactError, setLeadImpactError] = useState(null)
 
+  const [lastUpdated, setLastUpdated] = useState(null)
+  const [dateRanges, setDateRanges] = useState(DEFAULT_DATE_RANGES)
+
   const loadCampaigns = useCallback(async () => {
     setCampaignsLoading(true)
     setCampaignsError(null)
@@ -39,6 +50,7 @@ function Dashboard() {
       const data = await fetchCampaigns()
       setCampaigns(data.campaigns ?? [])
       setSuggestions(data.suggestions ?? [])
+      setLastUpdated(new Date())
     } catch (err) {
       setCampaignsError(err instanceof Error ? err.message : 'Failed to load campaigns')
     } finally {
@@ -131,25 +143,51 @@ function Dashboard() {
   }
 
   const selectedCampaignName = campaigns.find((c) => c.id === selectedCampaignId)?.name
+  const portfolioSummary = summarizeCampaigns(campaigns)
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
+    <div className="min-h-screen bg-canvas p-8">
       <div className="mx-auto max-w-6xl">
         <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">AdScale AI</h1>
-            <p className="mt-1 text-slate-500">
+            <h1 className={pageHeading}>AdScale AI</h1>
+            <p className="mt-1 text-sm text-muted">
               {role === 'lead'
                 ? 'Marketing lead — results & guardrails'
                 : 'Autonomous Ad Manager Dashboard'}
             </p>
           </div>
-          <RoleToggle role={role} onRoleChange={setRole} />
+          <div className="flex flex-wrap items-center gap-3">
+            <RoleToggle role={role} onRoleChange={setRole} />
+            {role === 'lead' && (
+              <DateRangeSelector value={dateRanges} onChange={setDateRanges} />
+            )}
+            <DataFreshness
+              lastUpdated={lastUpdated}
+              loading={campaignsLoading}
+              onRefresh={loadCampaigns}
+            />
+            {user && (
+              <UserMenu
+                user={user}
+                onSignOut={signOut}
+                profileContext={{
+                  role,
+                  guardrails,
+                  campaignCount: campaigns.length,
+                  activeCampaignCount: portfolioSummary.activeCount,
+                  totalSpent: portfolioSummary.totalSpent,
+                  lastUpdated,
+                }}
+              />
+            )}
+          </div>
         </header>
 
         {role === 'lead' ? (
           <MarketingLeadDashboard
             campaigns={campaigns}
+            dateRanges={dateRanges}
             loading={campaignsLoading}
             error={campaignsError}
             guardrails={guardrails}

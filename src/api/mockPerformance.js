@@ -5,7 +5,7 @@ import mockCampaigns from '../data/mockCampaigns.js'
  */
 
 /**
- * @typedef {{ label: string, value: string, index: number, trend: string }} ImpactMetric
+ * @typedef {{ label: string, value: string, index: number, trend: string, baselineDetail?: { benchmark: string, formula: string, note?: string } }} ImpactMetric
  */
 
 /**
@@ -56,10 +56,48 @@ const MOCK_IMPACT_STORIES = {
     narrative:
       'This campaign is delivering above-average return for spend in your vertical. Conversion volume grew 22% week-over-week while CPA held steady — a strong signal to maintain or modestly increase budget.',
     metrics: [
-      { label: 'ROAS', value: '3.4x', index: 118, trend: '+14%' },
-      { label: 'CPA', value: '$14.20', index: 88, trend: '-6%' },
-      { label: 'Conv. rate', value: '4.1%', index: 112, trend: '+9%' },
-      { label: 'Spend efficiency', value: '92%', index: 105, trend: '+3%' },
+      {
+        label: 'ROAS',
+        value: '3.4x',
+        index: 118,
+        trend: '+14%',
+        baselineDetail: {
+          benchmark: '2020 e-commerce paid media',
+          formula: '3.4x ROAS ÷ 2.88x category avg = Index 118',
+          note: 'Top quartile for your vertical.',
+        },
+      },
+      {
+        label: 'CPA',
+        value: '$14.20',
+        index: 88,
+        trend: '-6%',
+        baselineDetail: {
+          benchmark: '2020 e-commerce paid media',
+          formula: '$15.10 category CPA ÷ $14.20 = Index 88 (lower is better)',
+          note: '12% below industry median CPA.',
+        },
+      },
+      {
+        label: 'Conv. rate',
+        value: '4.1%',
+        index: 112,
+        trend: '+9%',
+        baselineDetail: {
+          benchmark: '2020 e-commerce paid media',
+          formula: '4.1% ÷ 3.66% baseline rate = Index 112',
+        },
+      },
+      {
+        label: 'Spend efficiency',
+        value: '92%',
+        index: 105,
+        trend: '+3%',
+        baselineDetail: {
+          benchmark: '2020 e-commerce paid media',
+          formula: 'Budget utilization vs. optimal pacing = Index 105',
+        },
+      },
     ],
   },
   '2': {
@@ -83,10 +121,50 @@ const DEFAULT_IMPACT_STORY = {
   narrative:
     'Across active campaigns, aggregate performance sits 7% above the indexed baseline. Meta channels are outperforming Google on ROAS; rebalancing 10% of budget could lift portfolio index to ~112.',
   metrics: [
-    { label: 'Portfolio ROAS', value: '2.9x', index: 107, trend: '+8%' },
-    { label: 'Blended CPA', value: '$19.80', index: 95, trend: '-3%' },
-    { label: 'Total conversions', value: '482', index: 112, trend: '+18%' },
-    { label: 'Budget utilization', value: '86%', index: 102, trend: '+2%' },
+    {
+      label: 'Portfolio ROAS',
+      value: '2.9x',
+      index: 107,
+      trend: '+8%',
+      baselineDetail: {
+        benchmark: '2020 e-commerce paid media',
+        formula: '2.9x ROAS ÷ 2.71x category avg = Index 107',
+        note: 'Tracking +8% vs. last 30-day rolling baseline.',
+      },
+    },
+    {
+      label: 'Blended CPA',
+      value: '$19.80',
+      index: 95,
+      trend: '-3%',
+      baselineDetail: {
+        benchmark: '2020 e-commerce paid media',
+        formula: '$20.42 category CPA ÷ $19.80 = Index 95',
+        note: 'Slightly below benchmark — efficient acquisition.',
+      },
+    },
+    {
+      label: 'Total conversions',
+      value: '482',
+      index: 112,
+      trend: '+18%',
+      baselineDetail: {
+        benchmark: '2020 e-commerce paid media',
+        formula: '482 conv. vs. 431 baseline volume = Index 112',
+        note: 'Volume lift driven by Meta retargeting.',
+      },
+    },
+    {
+      label: 'Budget utilization',
+      value: '86%',
+      index: 102,
+      trend: '+2%',
+      baselineDetail: {
+        benchmark: '2020 e-commerce paid media',
+        formula: '86% cap use vs. 84% optimal pacing = Index 102',
+        note: 'Near cap — monitor spend guardrails.',
+      },
+    },
   ],
 }
 
