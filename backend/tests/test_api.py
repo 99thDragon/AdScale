@@ -117,6 +117,44 @@ def test_sync_requires_live_campaign():
     assert client.post(f"/campaigns/{cid}/sync").status_code == 409
 
 
+def test_impact_story_is_indexed_after_launch():
+    cid = _launch("Drive ecommerce sales")
+    story = client.get(f"/campaigns/{cid}/impact-story").json()
+    assert story["summary"]
+    assert story["indexed_metrics"] is not None
+    assert "ctr" in story["indexed_metrics"]
+
+
+def test_auto_optimize_improves_within_guardrail():
+    cid = client.post(
+        "/campaigns/generate", json={"goal": "Improve ROAS on a $4000 budget"}
+    ).json()["id"]
+    client.put(f"/campaigns/{cid}/spend-cap", json={"cap": 500})
+    client.post(f"/campaigns/{cid}/approve")
+    client.post(f"/campaigns/{cid}/launch")
+
+    before = next(c for c in client.get("/campaigns").json() if c["id"] == cid)
+    result = client.post(f"/campaigns/{cid}/auto-optimize").json()
+
+    assert result["applied"]  # some suggestions were applied
+    assert result["performance"]["ctr"] >= before["performance"]["ctr"]
+    assert result["performance"]["spend"] <= 500  # guardrail still holds
+
+
+def test_approval_threshold_blocks_high_spend_launch():
+    # Budget from the mock draft is $2000; set the threshold below it.
+    cid = client.post("/campaigns/generate", json={"goal": "Big brand push"}).json()["id"]
+    client.put(f"/campaigns/{cid}/approval-threshold", json={"amount": 500})
+    client.post(f"/campaigns/{cid}/approve")
+
+    blocked = client.post(f"/campaigns/{cid}/launch")
+    assert blocked.status_code == 409
+
+    confirmed = client.post(f"/campaigns/{cid}/launch", json={"confirm_high_spend": True})
+    assert confirmed.status_code == 200
+    assert confirmed.json()["status"] == "active"
+
+
 def test_list_includes_created_campaigns():
     before = len(client.get("/campaigns").json())
     client.post("/campaigns/generate", json={"goal": "Promote a new podcast"})

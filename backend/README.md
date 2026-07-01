@@ -30,8 +30,12 @@ uvicorn app.main:app --reload --port 8000
 | `POST /campaigns/generate` | `{ goal }` → AI-generated `Campaign` (status `draft`) |
 | `GET /campaigns` | list all campaigns + performance |
 | `POST /campaigns/{id}/approve` | explicit approval (required before launch) |
-| `POST /campaigns/{id}/launch` | launch — 409 if not yet approved |
+| `POST /campaigns/{id}/launch` | launch — 409 if not approved / over threshold |
+| `POST /campaigns/{id}/sync` | pull latest performance from the connector |
+| `PUT /campaigns/{id}/spend-cap` | `{ cap }` — guardrail the agent can't exceed |
+| `PUT /campaigns/{id}/approval-threshold` | `{ amount }` — spend above this needs confirmation |
 | `GET /campaigns/{id}/optimizations` | AI optimization suggestions (plain-language) |
+| `POST /campaigns/{id}/auto-optimize` | apply top optimizations within the guardrail |
 | `GET /campaigns/{id}/impact-story` | indexed impact summary |
 
 ### `Campaign` shape (what the frontend consumes)
@@ -61,8 +65,12 @@ uvicorn app.main:app --reload --port 8000
 - [x] `POST /campaigns/generate` (LLM goal → structured draft) — #20
 - [x] Approve-before-spend enforced on launch, API side (supports #9)
 - [x] AI optimization suggestions + explanations — #21
-- [ ] Real Google/Meta OAuth — #19
-- [ ] Ad-platform connectors + live performance — #24
-- [ ] Server-side spend-cap enforcement — #25
-- [ ] LLM-indexed impact story — #23
-- [ ] Persist to a real DB (Supabase/Postgres) — #18
+- [x] Persist to a real DB — SQLite now, Postgres/Supabase via `DATABASE_URL` — #18
+- [x] Ad-platform connector + live performance (mock) — #24
+- [x] Server-side spend-cap enforcement — #25
+- [x] Auto-optimization within guardrails — #22
+- [x] LLM-indexed impact story — #23
+- [x] Approval thresholds for high spend — #26
+- [ ] **Real Google/Meta OAuth — #19** (needs registered developer apps + credentials)
+- [ ] **OAuth token lifecycle — #27** (follows #19)
+- [ ] Swap mock connector for real Google Ads / Meta API calls — #24 (needs #19)

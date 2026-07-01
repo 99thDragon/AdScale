@@ -19,8 +19,13 @@ from .models import (
     Budget,
     Campaign,
     CampaignDraft,
+    ImpactStory,
     OptimizationSuggestion,
 )
+
+# Baselines used to index performance against a 100 reference (PRD's framing).
+BASELINE_CTR = 2.0  # % — 100 index
+BASELINE_CONV_PER_1K = 20.0  # conversions per $1k spend — 100 index
 
 # Default to the latest cost-effective Claude model; override via env if needed.
 MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5")
@@ -232,3 +237,68 @@ def _mock_optimizations(campaign: Campaign) -> list[OptimizationSuggestion]:
             impact="medium",
         ),
     ]
+
+
+# --- Impact story (indexed) ------------------------------------------------
+
+
+def _compute_indices(campaign: Campaign) -> dict[str, float]:
+    """Index the campaign's metrics against a 100 baseline."""
+    perf = campaign.performance
+    indices: dict[str, float] = {}
+    if perf is None:
+        return indices
+    indices["ctr"] = round((perf.ctr / BASELINE_CTR) * 100)
+    if perf.spend > 0:
+        conv_per_1k = perf.conversions / (perf.spend / 1000)
+        indices["conversion_efficiency"] = round(
+            (conv_per_1k / BASELINE_CONV_PER_1K) * 100
+        )
+    return indices
+
+
+def generate_impact_story(campaign: Campaign) -> ImpactStory:
+    """Produce an indexed impact summary — LLM-written, with a computed fallback."""
+    indices = _compute_indices(campaign)
+    perf = campaign.performance
+    headline = f"{perf.conversions} conversions" if perf else None
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if not api_key or perf is None:
+        summary = (
+            f"{campaign.draft.name}: {perf.conversions} conversions at a {perf.ctr:.1f}% CTR "
+            f"on ${perf.spend:,.0f} spend. Indexed to a 100 baseline, that's a CTR of "
+            f"{indices.get('ctr', 100):.0f} and conversion efficiency of "
+            f"{indices.get('conversion_efficiency', 100):.0f}."
+        ) if perf else (
+            f"{campaign.draft.name} is staged but not yet live — no performance to index."
+        )
+        return ImpactStory(
+            id=campaign.id,
+            summary=summary,
+            headline_metric=headline,
+            indexed_metrics=indices or None,
+        )
+
+    from anthropic import Anthropic
+
+    client = Anthropic(api_key=api_key)
+    prompt = (
+        "Write a 2-3 sentence impact summary for this campaign that a marketing "
+        "manager could show a data-fluent leadership team. Express results in "
+        "indexed terms against a 100 baseline where useful.\n\n"
+        f"Campaign performance: {perf.model_dump_json()}\n"
+        f"Computed indices (baseline=100): {indices}"
+    )
+    resp = client.messages.create(
+        model=MODEL,
+        max_tokens=400,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    summary = "".join(b.text for b in resp.content if getattr(b, "type", None) == "text").strip()
+    return ImpactStory(
+        id=campaign.id,
+        summary=summary,
+        headline_metric=headline,
+        indexed_metrics=indices or None,
+    )

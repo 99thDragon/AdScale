@@ -48,10 +48,11 @@ class Performance(BaseModel):
 
 class Campaign(BaseModel):
     id: str
-    status: str  # draft | approved | active | paused
+    status: str  # draft | approved | active | paused | optimizing
     draft: CampaignDraft
     performance: Performance | None = None
     spend_cap: float | None = None  # guardrail — agent may never exceed (issue #25)
+    approval_threshold: float | None = None  # spend above this needs confirmation (#26)
 
 
 # --- Request / response payloads -------------------------------------------
@@ -65,6 +66,14 @@ class SpendCapRequest(BaseModel):
     cap: float | None = None  # None clears the cap
 
 
+class ApprovalThresholdRequest(BaseModel):
+    amount: float | None = None  # None clears the threshold
+
+
+class LaunchRequest(BaseModel):
+    confirm_high_spend: bool = False  # required when budget exceeds threshold (#26)
+
+
 class StatusResponse(BaseModel):
     id: str
     status: str
@@ -74,6 +83,8 @@ class ImpactStory(BaseModel):
     id: str
     summary: str
     headline_metric: str | None = None
+    # Metrics indexed against a 100 baseline (the PRD's data-fluent framing).
+    indexed_metrics: dict[str, float] | None = None
 
 
 class OptimizationSuggestion(BaseModel):
@@ -82,3 +93,9 @@ class OptimizationSuggestion(BaseModel):
     title: str  # short action, e.g. "Shift budget toward Meta"
     rationale: str  # why, in plain language
     impact: str = "medium"  # high | medium | low
+
+
+class AutoOptimizeResult(BaseModel):
+    id: str
+    applied: list[str]  # titles of the suggestions applied
+    performance: Performance

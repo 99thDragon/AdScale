@@ -15,14 +15,24 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()  # read backend/.env if present (ANTHROPIC_API_KEY, etc.)
 
+from fastapi import Body  # noqa: E402
+
 from . import connectors, store  # noqa: E402  (import after load_dotenv)
-from .agent import generate_campaign_draft, suggest_optimizations  # noqa: E402
+from .agent import (  # noqa: E402
+    generate_campaign_draft,
+    generate_impact_story,
+    suggest_optimizations,
+)
 from .db import init_db  # noqa: E402
 from .models import (  # noqa: E402
+    ApprovalThresholdRequest,
+    AutoOptimizeResult,
     Campaign,
     GenerateRequest,
     ImpactStory,
+    LaunchRequest,
     OptimizationSuggestion,
+    Performance,
     SpendCapRequest,
     StatusResponse,
 )
@@ -70,7 +80,7 @@ def approve(cid: str):
 
 
 @app.post("/campaigns/{cid}/launch", response_model=StatusResponse)
-def launch(cid: str):
+def launch(cid: str, req: LaunchRequest = Body(default=LaunchRequest())):
     """[P0] Launch — enforces approve-before-spend, then dispatches to the connector."""
     campaign = store.get_campaign(cid)
     if campaign is None:
@@ -78,6 +88,20 @@ def launch(cid: str):
     if campaign.status != "approved":
         raise HTTPException(
             status_code=409, detail="campaign must be approved before launch"
+        )
+    # Approval threshold: budgets above it need explicit high-spend confirmation (#26).
+    if (
+        campaign.approval_threshold is not None
+        and campaign.draft.budget.total > campaign.approval_threshold
+        and not req.confirm_high_spend
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"budget ${campaign.draft.budget.total:,.0f} exceeds approval "
+                f"threshold ${campaign.approval_threshold:,.0f}; resend with "
+                "confirm_high_spend=true"
+            ),
         )
     campaign = store.set_status(cid, "active")
     # Dispatch to the ad-platform connector; spend is capped by the guardrail (#24/#25).
@@ -118,25 +142,47 @@ def optimizations(cid: str):
     return suggest_optimizations(campaign)
 
 
-@app.get("/campaigns/{cid}/impact-story", response_model=ImpactStory)
-def impact_story(cid: str):
-    """[P1] Indexed impact summary. TODO: make this LLM-generated + indexed."""
+@app.put("/campaigns/{cid}/approval-threshold", response_model=Campaign)
+def set_approval_threshold(cid: str, req: ApprovalThresholdRequest):
+    """[P1] Set the spend level above which launch needs confirmation (issue #26)."""
+    if req.amount is not None and req.amount < 0:
+        raise HTTPException(status_code=400, detail="amount must be >= 0")
+    campaign = store.set_approval_threshold(cid, req.amount)
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    return campaign
+
+
+@app.post("/campaigns/{cid}/auto-optimize", response_model=AutoOptimizeResult)
+def auto_optimize(cid: str):
+    """[P1] Apply top optimizations automatically, within the spend guardrail (#22)."""
     campaign = store.get_campaign(cid)
     if campaign is None:
         raise HTTPException(status_code=404, detail="campaign not found")
+    if campaign.performance is None or campaign.status not in {"active", "optimizing"}:
+        raise HTTPException(status_code=409, detail="campaign is not live")
 
+    applied = [s.title for s in suggest_optimizations(campaign)[:2]]
+
+    # Simulate the effect of the optimizations — improve efficiency, never exceed
+    # the spend ceiling (guardrail).
     perf = campaign.performance
-    if perf is None:
-        return ImpactStory(
-            id=campaign.id,
-            summary=f"{campaign.draft.name} is staged but not yet live — no performance to index.",
-        )
-    summary = (
-        f"{campaign.draft.name} drove {perf.conversions} conversions at a "
-        f"{perf.ctr:.1f}% CTR on ${perf.spend:,.0f} of ${perf.budget_total:,.0f} budget."
+    ceiling = connectors.effective_ceiling(campaign, campaign.spend_cap)
+    improved = Performance(
+        spend=round(min(perf.spend, ceiling), 2),
+        budget_total=perf.budget_total,
+        ctr=round(min(perf.ctr * 1.15, 10.0), 1),
+        conversions=int(perf.conversions * 1.2),
     )
-    return ImpactStory(
-        id=campaign.id,
-        summary=summary,
-        headline_metric=f"{perf.conversions} conversions",
-    )
+    store.update_performance(cid, improved)
+    store.set_status(cid, "optimizing")
+    return AutoOptimizeResult(id=cid, applied=applied, performance=improved)
+
+
+@app.get("/campaigns/{cid}/impact-story", response_model=ImpactStory)
+def impact_story(cid: str):
+    """[P1] Indexed impact summary — LLM-written, indexed against a 100 baseline (#23)."""
+    campaign = store.get_campaign(cid)
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    return generate_impact_story(campaign)

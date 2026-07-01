@@ -21,3 +21,5 @@ class CampaignRow(Base):
     performance_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Guardrail: the agent may never spend beyond this (issue #25). None = no cap.
     spend_cap: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Spend above this needs explicit high-spend confirmation to launch (issue #26).
+    approval_threshold: Mapped[float | None] = mapped_column(Float, nullable=True)

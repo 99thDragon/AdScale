@@ -26,6 +26,7 @@ def _to_campaign(row: CampaignRow) -> Campaign:
             else None
         ),
         spend_cap=row.spend_cap,
+        approval_threshold=row.approval_threshold,
     )
 
 
@@ -64,6 +65,17 @@ def set_spend_cap(cid: str, cap: float | None) -> Campaign | None:
         if row is None:
             return None
         row.spend_cap = cap
+        session.commit()
+        return _to_campaign(row)
+
+
+def set_approval_threshold(cid: str, amount: float | None) -> Campaign | None:
+    """Set the spend level above which launch needs confirmation (issue #26)."""
+    with SessionLocal() as session:
+        row = session.get(CampaignRow, cid)
+        if row is None:
+            return None
+        row.approval_threshold = amount
         session.commit()
         return _to_campaign(row)
 
