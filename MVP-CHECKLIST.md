@@ -5,9 +5,10 @@ parallel and merge cleanly (same approach that worked for the login system).
 
 **Current state — MVP complete, all merged to `main`:**
 - ✅ Frontend cockpit complete **and wired to the live backend** via `src/api/campaigns.js` (set `VITE_API_BASE_URL`, else it falls back to mock data).
-- ✅ Backend complete — FastAPI + SQLite (Postgres/Supabase-swappable), LLM campaign agent, guardrails, indexed impact story (15 pytest tests pass).
+- ✅ Backend complete — FastAPI + SQLite (Postgres/Supabase-swappable), LLM campaign agent, guardrails, indexed impact story (22 pytest tests pass).
 - ✅ Real Google login via Supabase Auth.
-- **Only remaining:** swap the mock ad-platform connector for real Google Ads / Meta API calls (#24) and the ad-platform token lifecycle that depends on it (#27).
+- ✅ Ad-platform OAuth token lifecycle — minimal scope, expiry, refresh, revoke, encrypted at rest (#27); connector seam picks real-vs-mock by token (#24).
+- **Only remaining:** implement the real Google Ads / Meta API calls behind the connector seam (#24) — needs platform dev credentials + a test ad account.
 
 ### Owners
 - 🧠 **Erasmo** — AI agent, backend, integrations → new dirs `/backend`, `/agent`
@@ -60,10 +61,10 @@ New dirs (`/backend`, `/agent`) — no overlap with `/src`.
 - [x] `[P1]` Indexed **"impact story"** generation ✅ #23
 
 ### Integration + safety
-- [~] `[P0]` Ad-platform connectors (Google Ads / Meta API): launch + pull live performance — 🟡 **mock done; real API pending** #24
+- [~] `[P0]` Ad-platform connectors (Google Ads / Meta API): launch + pull live performance — 🟡 **seam done (real-vs-mock by token); real API calls pending platform creds** #24
 - [x] `[P0]` Server-side **spend-cap enforcement** (agent cannot exceed the cap) ✅ #25
 - [x] `[P1]` Approval thresholds for spend above a set amount ✅ #26
-- [~] `[P0]` Token lifecycle: minimal scope + expiry/revocation (PRD §6c) — 🟡 **login handled by Supabase; ad-platform pending** #27 (needs #24)
+- [x] `[P0]` Token lifecycle: minimal scope + expiry/revocation, encrypted at rest (PRD §6c) ✅ #27
 
 ---
 
