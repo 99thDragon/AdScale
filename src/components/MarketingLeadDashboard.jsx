@@ -1,15 +1,18 @@
+import { useMemo, useRef, useState } from 'react'
 import GuardrailsPanel from './GuardrailsPanel'
 import ImpactStoryPanel from './ImpactStoryPanel'
+import StatusBadge from './StatusBadge'
+import CampaignAgentDrawer from './CampaignAgentDrawer'
+import PlatformBadge from './PlatformBadge'
+import SpendUtilizationBar from './SpendUtilizationBar'
 import { formatCurrency, summarizeCampaigns } from '../data/guardrails'
-
-const statusStyles = {
-  Active: 'bg-green-100 text-green-800',
-  Optimizing: 'bg-yellow-100 text-yellow-800',
-  Paused: 'bg-slate-100 text-slate-600',
-}
+import { computeRebalancePreview } from '../data/guardrailsWhatIf'
+import { filterCampaignsByDateRange, getDateRangeLabel } from '../data/dateRange'
+import { card, labelCaps, sectionHeading, tabularNum } from '../styles/ui'
 
 function MarketingLeadDashboard({
   campaigns,
+  dateRanges,
   loading,
   error,
   guardrails,
@@ -18,101 +21,220 @@ function MarketingLeadDashboard({
   impactLoading,
   impactError,
 }) {
-  const summary = summarizeCampaigns(campaigns)
+  const [selectedCampaign, setSelectedCampaign] = useState(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const [rebalancePreviewActive, setRebalancePreviewActive] = useState(false)
+  const tableRef = useRef(null)
+
+  const rangedCampaigns = useMemo(
+    () => filterCampaignsByDateRange(campaigns, dateRanges),
+    [campaigns, dateRanges],
+  )
+
+  const summary = summarizeCampaigns(rangedCampaigns)
   const spendUtilization =
     guardrails.spendCap > 0
       ? Math.min(Math.round((summary.totalSpent / guardrails.spendCap) * 100), 100)
       : 0
 
+  const rebalanceAdjustments = useMemo(
+    () => (rebalancePreviewActive ? computeRebalancePreview(rangedCampaigns) : null),
+    [rangedCampaigns, rebalancePreviewActive],
+  )
+
+  const rangeLabel = getDateRangeLabel(dateRanges)
+
+  function handleRowClick(campaign) {
+    setSelectedCampaign(campaign)
+    setDrawerOpen(true)
+  }
+
+  function handleCloseDrawer() {
+    setDrawerOpen(false)
+  }
+
+  function handleToggleRebalancePreview() {
+    setRebalancePreviewActive((prev) => {
+      const next = !prev
+      if (next) {
+        setTimeout(() => {
+          tableRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }, 80)
+      }
+      return next
+    })
+  }
+
   return (
     <div>
       <div className="mb-6">
-        <h2 className="text-xl font-semibold text-slate-900">Marketing lead overview</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          Results and spend across all campaigns — read-only performance view.
+        <h2 className={sectionHeading}>Marketing lead overview</h2>
+        <p className="mt-1 text-sm text-muted">
+          {rangeLabel} portfolio results — click a row for performance history and agent activity.
         </p>
       </div>
 
-      <GuardrailsPanel guardrails={guardrails} onChange={onGuardrailsSave} />
+      <GuardrailsPanel
+        guardrails={guardrails}
+        onChange={onGuardrailsSave}
+        campaigns={rangedCampaigns}
+      />
 
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <SummaryCard label="Total spent" value={formatCurrency(summary.totalSpent)} />
+        <div className={`${card} p-4`}>
+          <p className={labelCaps}>Total spent</p>
+          <p className={`mt-2 text-2xl font-semibold text-ink ${tabularNum}`}>
+            {formatCurrency(summary.totalSpent)}
+          </p>
+          <SpendUtilizationBar
+            spent={summary.totalSpent}
+            cap={guardrails.spendCap}
+            utilization={spendUtilization}
+            compact
+          />
+        </div>
         <SummaryCard label="Total budget" value={formatCurrency(summary.totalBudget)} />
         <SummaryCard label="Conversions" value={summary.totalConversions.toLocaleString()} />
         <SummaryCard label="Active campaigns" value={String(summary.activeCount)} />
       </div>
-
-      <div className="mb-8 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-2 flex justify-between text-sm">
-          <span className="font-medium text-slate-700">Spend vs. cap</span>
-          <span className="text-slate-500">
-            {formatCurrency(summary.totalSpent)} / {formatCurrency(guardrails.spendCap)}
-          </span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className={`h-full rounded-full transition-all ${spendUtilization > 90 ? 'bg-red-500' : 'bg-indigo-500'}`}
-            style={{ width: `${spendUtilization}%` }}
-          />
-        </div>
-      </div>
-
-      <section className="mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-6 py-4">
-          <h3 className="text-lg font-semibold text-slate-900">Campaign results & spend</h3>
-        </div>
-
-        {error && (
-          <div className="mx-6 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
-        )}
-
-        {loading ? (
-          <p className="px-6 py-8 text-sm text-slate-500">Loading campaign data…</p>
-        ) : campaigns.length === 0 ? (
-          <p className="px-6 py-8 text-sm text-slate-500">No campaigns to report on yet.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-6 py-3 font-medium">Campaign</th>
-                  <th className="px-6 py-3 font-medium">Platform</th>
-                  <th className="px-6 py-3 font-medium">Status</th>
-                  <th className="px-6 py-3 font-medium">Spend</th>
-                  <th className="px-6 py-3 font-medium">CTR</th>
-                  <th className="px-6 py-3 font-medium">Conversions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {campaigns.map((c) => (
-                  <tr key={c.id} className="hover:bg-slate-50">
-                    <td className="px-6 py-4 font-medium text-slate-900">{c.name}</td>
-                    <td className="px-6 py-4 text-slate-600">{c.platform}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusStyles[c.status] ?? statusStyles.Paused}`}
-                      >
-                        {c.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-slate-700">{c.budgetSpent}</td>
-                    <td className="px-6 py-4 font-semibold text-slate-900">{c.ctr}</td>
-                    <td className="px-6 py-4 font-semibold text-slate-900">{c.conversions}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
 
       <ImpactStoryPanel
         impactStory={impactStory}
         campaignName="Portfolio overview"
         loading={impactLoading}
         error={impactError}
+        showRebalanceAction
+        rebalancePreviewActive={rebalancePreviewActive}
+        onToggleRebalancePreview={handleToggleRebalancePreview}
+      />
+
+      {rebalancePreviewActive && (
+        <div className="mb-4 rounded-lg border border-primary/30 bg-primary-soft px-4 py-3 text-sm text-ink">
+          <span className="font-medium">Preview state active.</span> Meta rows show proposed budget
+          increases; Google rows are dimmed. Approve from guardrails when ready.
+        </div>
+      )}
+
+      <section
+        ref={tableRef}
+        className={`${card} mb-8 overflow-hidden transition ${
+          rebalancePreviewActive ? 'ring-2 ring-primary/40' : ''
+        }`}
+      >
+        <div className="border-b border-border px-6 py-4">
+          <h3 className="text-lg font-semibold text-ink">Campaign results & spend</h3>
+          <p className="mt-1 text-xs text-muted">
+            {rangeLabel} · Click a row for historical breakdown and agent actions
+            {rebalancePreviewActive && ' · Rebalance preview highlighted below'}
+          </p>
+        </div>
+
+        {error && (
+          <div className="mx-6 mt-4 rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {loading ? (
+          <p className="px-6 py-8 text-sm text-muted">Loading campaign data…</p>
+        ) : rangedCampaigns.length === 0 ? (
+          <p className="px-6 py-8 text-sm text-muted">No campaigns to report on yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b border-border bg-canvas text-xs uppercase tracking-wide text-muted">
+                <tr>
+                  <th className="px-6 py-3 text-left font-medium">Campaign</th>
+                  <th className="px-6 py-3 text-left font-medium">Platform</th>
+                  <th className="px-6 py-3 text-left font-medium">Status</th>
+                  <th className={`px-6 py-3 text-right font-medium ${tabularNum}`}>
+                    {rebalancePreviewActive ? 'Spend (preview)' : 'Spend'}
+                  </th>
+                  <th className={`px-6 py-3 text-right font-medium ${tabularNum}`}>CTR</th>
+                  <th className={`px-6 py-3 text-right font-medium ${tabularNum}`}>Conversions</th>
+                  <th className="px-4 py-3 font-medium" aria-hidden="true" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rangedCampaigns.map((c) => {
+                  const adjustment = rebalanceAdjustments?.[c.id]
+                  const spendDisplay = adjustment?.preview ?? c.budgetSpent
+                  const isGoogle = c.platform === 'Google Ads'
+                  const isMetaGain = Boolean(adjustment && adjustment.delta > 0)
+                  const isGoogleCut = Boolean(adjustment && adjustment.delta < 0)
+
+                  return (
+                    <tr
+                      key={c.id}
+                      onClick={() => handleRowClick(c)}
+                      className={`group cursor-pointer transition-colors ${
+                        rebalancePreviewActive && isGoogle
+                          ? 'bg-canvas/60 opacity-50'
+                          : rebalancePreviewActive && isMetaGain
+                            ? 'bg-primary-soft/70 ring-1 ring-inset ring-primary/30 animate-pulse-soft'
+                            : 'hover:bg-canvas'
+                      }`}
+                    >
+                      <td className="px-6 py-4 font-medium text-ink group-hover:text-primary">
+                        {c.name}
+                      </td>
+                      <td className="px-6 py-4">
+                        <PlatformBadge platform={c.platform} compact />
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusBadge status={c.status} />
+                      </td>
+                      <td className={`px-6 py-4 text-right ${tabularNum}`}>
+                        {adjustment ? (
+                          <div>
+                            <p className="text-primary">{spendDisplay}</p>
+                            <p className="text-xs text-muted line-through">{c.budgetSpent}</p>
+                            <p
+                              className={`text-xs ${
+                                isMetaGain
+                                  ? 'text-primary animate-pulse-soft'
+                                  : isGoogleCut
+                                    ? 'text-muted'
+                                    : 'text-accent'
+                              }`}
+                            >
+                              {adjustment.delta > 0 ? '+' : ''}
+                              {formatCurrency(adjustment.delta)} budget
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-ink">{c.budgetSpent}</span>
+                        )}
+                      </td>
+                      <td className={`px-6 py-4 text-right text-ink ${tabularNum}`}>{c.ctr}</td>
+                      <td className={`px-6 py-4 text-right text-ink ${tabularNum}`}>
+                        {c.conversions}
+                      </td>
+                      <td className="px-4 py-4 text-muted opacity-0 transition group-hover:opacity-100">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path
+                            d="M9 6l6 6-6 6"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      <CampaignAgentDrawer
+        campaign={selectedCampaign}
+        open={drawerOpen}
+        onClose={handleCloseDrawer}
+        dateRangeLabel={rangeLabel}
       />
     </div>
   )
@@ -120,9 +242,9 @@ function MarketingLeadDashboard({
 
 function SummaryCard({ label, value }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-slate-900">{value}</p>
+    <div className={`${card} p-4`}>
+      <p className={labelCaps}>{label}</p>
+      <p className={`mt-2 text-2xl font-semibold text-ink ${tabularNum}`}>{value}</p>
     </div>
   )
 }

@@ -1,3 +1,4 @@
+import { card, sectionHeading } from '../styles/ui'
 import CampaignCard from './CampaignCard'
 
 function CampaignGrid({
@@ -8,25 +9,25 @@ function CampaignGrid({
   onSelectCampaign,
 }) {
   return (
-    <div className="my-8 border-t border-slate-200 pt-8">
+    <div className="my-8 border-t border-border pt-8">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-slate-800">Active AI Campaigns</h2>
-        {loading && <span className="text-sm text-slate-500">Refreshing…</span>}
+        <h2 className={sectionHeading}>Active AI Campaigns</h2>
+        {loading && <span className="text-sm text-muted">Refreshing…</span>}
       </div>
 
       {error && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className={`${card} mb-4 border-danger/30 bg-danger-soft px-4 py-3 text-sm text-red-700`}>
           {error}
         </div>
       )}
 
       {loading && campaigns.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-          <p className="text-sm text-slate-500">Loading campaigns…</p>
+        <div className={`${card} border-dashed px-6 py-12 text-center`}>
+          <p className="text-sm text-muted">Loading campaigns…</p>
         </div>
       ) : campaigns.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-          <p className="text-sm text-slate-500">
+        <div className={`${card} border-dashed px-6 py-12 text-center`}>
+          <p className="text-sm text-muted">
             No active campaigns yet. Enter a goal above and run the agent.
           </p>
         </div>
@@ -41,8 +42,8 @@ function CampaignGrid({
                   onClick={() => onSelectCampaign(campaign.id)}
                   className={`mt-2 w-full rounded-lg border px-3 py-2 text-sm font-medium transition ${
                     selectedCampaignId === campaign.id
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                      ? 'border-primary bg-primary-soft text-primary'
+                      : 'border-border bg-surface text-muted hover:border-primary/30 hover:bg-canvas hover:text-ink'
                   }`}
                 >
                   {selectedCampaignId === campaign.id ? 'Impact story selected' : 'View impact story'}
