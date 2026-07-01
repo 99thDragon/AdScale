@@ -1,41 +1,95 @@
-"""In-memory campaign store.
+"""Campaign persistence (SQLite via SQLAlchemy).
 
-Deliberately simple for the first slice — swap for a real DB (Supabase/Postgres)
-later without changing the API surface. See the backend track in MVP-CHECKLIST.md.
+Same function surface as the original in-memory store, so the API layer is
+unchanged — data now survives restarts (issue #18).
 """
 
 from __future__ import annotations
 
-import itertools
+import uuid
 
+from sqlalchemy import select
+
+from .db import SessionLocal
+from .db_models import CampaignRow
 from .models import Campaign, CampaignDraft, Performance
 
-_counter = itertools.count(1)
-_campaigns: dict[str, Campaign] = {}
+
+def _to_campaign(row: CampaignRow) -> Campaign:
+    return Campaign(
+        id=row.id,
+        status=row.status,
+        draft=CampaignDraft.model_validate_json(row.draft_json),
+        performance=(
+            Performance.model_validate_json(row.performance_json)
+            if row.performance_json
+            else None
+        ),
+        spend_cap=row.spend_cap,
+    )
 
 
 def create_campaign(draft: CampaignDraft) -> Campaign:
-    cid = str(next(_counter))
-    campaign = Campaign(id=cid, status="draft", draft=draft, performance=None)
-    _campaigns[cid] = campaign
-    return campaign
+    cid = uuid.uuid4().hex[:8]
+    with SessionLocal() as session:
+        session.add(
+            CampaignRow(id=cid, status="draft", draft_json=draft.model_dump_json())
+        )
+        session.commit()
+    return Campaign(id=cid, status="draft", draft=draft, performance=None)
 
 
 def list_campaigns() -> list[Campaign]:
-    return list(_campaigns.values())
+    with SessionLocal() as session:
+        rows = session.execute(select(CampaignRow)).scalars().all()
+        return [_to_campaign(row) for row in rows]
 
 
 def get_campaign(cid: str) -> Campaign | None:
-    return _campaigns.get(cid)
+    with SessionLocal() as session:
+        row = session.get(CampaignRow, cid)
+        return _to_campaign(row) if row else None
+
+
+def get_spend_cap(cid: str) -> float | None:
+    with SessionLocal() as session:
+        row = session.get(CampaignRow, cid)
+        return row.spend_cap if row else None
+
+
+def set_spend_cap(cid: str, cap: float | None) -> Campaign | None:
+    """Set the guardrail the agent may never exceed (issue #25)."""
+    with SessionLocal() as session:
+        row = session.get(CampaignRow, cid)
+        if row is None:
+            return None
+        row.spend_cap = cap
+        session.commit()
+        return _to_campaign(row)
 
 
 def set_status(cid: str, status: str) -> Campaign | None:
-    campaign = _campaigns.get(cid)
-    if campaign is None:
-        return None
-    campaign.status = status
-    # Seed an (empty) performance record once a campaign goes live so the
-    # dashboard and impact story have something to read.
-    if status == "active" and campaign.performance is None:
-        campaign.performance = Performance(budget_total=campaign.draft.budget.total)
-    return campaign
+    with SessionLocal() as session:
+        row = session.get(CampaignRow, cid)
+        if row is None:
+            return None
+        row.status = status
+        # Seed an empty performance record when a campaign goes live.
+        if status == "active" and not row.performance_json:
+            draft = CampaignDraft.model_validate_json(row.draft_json)
+            row.performance_json = Performance(
+                budget_total=draft.budget.total
+            ).model_dump_json()
+        session.commit()
+        return _to_campaign(row)
+
+
+def update_performance(cid: str, performance: Performance) -> Campaign | None:
+    """Persist a performance snapshot (used by the platform connectors, #24)."""
+    with SessionLocal() as session:
+        row = session.get(CampaignRow, cid)
+        if row is None:
+            return None
+        row.performance_json = performance.model_dump_json()
+        session.commit()
+        return _to_campaign(row)

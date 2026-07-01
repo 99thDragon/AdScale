@@ -51,6 +51,7 @@ class Campaign(BaseModel):
     status: str  # draft | approved | active | paused
     draft: CampaignDraft
     performance: Performance | None = None
+    spend_cap: float | None = None  # guardrail — agent may never exceed (issue #25)
 
 
 # --- Request / response payloads -------------------------------------------
@@ -58,6 +59,10 @@ class Campaign(BaseModel):
 
 class GenerateRequest(BaseModel):
     goal: str
+
+
+class SpendCapRequest(BaseModel):
+    cap: float | None = None  # None clears the cap
 
 
 class StatusResponse(BaseModel):

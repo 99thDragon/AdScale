@@ -74,6 +74,49 @@ def test_optimizations_unknown_campaign_404():
     assert client.get("/campaigns/does-not-exist/optimizations").status_code == 404
 
 
+def _launch(goal: str) -> str:
+    cid = client.post("/campaigns/generate", json={"goal": goal}).json()["id"]
+    client.post(f"/campaigns/{cid}/approve")
+    client.post(f"/campaigns/{cid}/launch")
+    return cid
+
+
+def test_launch_seeds_live_performance():
+    cid = _launch("Sell running shoes")
+    campaign = client.get("/campaigns").json()
+    perf = next(c["performance"] for c in campaign if c["id"] == cid)
+    assert perf is not None
+    assert perf["spend"] > 0
+    assert perf["ctr"] > 0
+
+
+def test_sync_advances_spend_but_respects_cap():
+    cid = client.post(
+        "/campaigns/generate", json={"goal": "Lead gen for a $5000 budget"}
+    ).json()["id"]
+    # Cap spend at $300, well under the campaign budget.
+    capped = client.put(f"/campaigns/{cid}/spend-cap", json={"cap": 300}).json()
+    assert capped["spend_cap"] == 300
+
+    client.post(f"/campaigns/{cid}/approve")
+    client.post(f"/campaigns/{cid}/launch")
+
+    # Sync several times; spend must never exceed the cap.
+    for _ in range(10):
+        campaign = client.post(f"/campaigns/{cid}/sync").json()
+        assert campaign["performance"]["spend"] <= 300
+
+
+def test_spend_cap_rejects_negative():
+    cid = client.post("/campaigns/generate", json={"goal": "x"}).json()["id"]
+    assert client.put(f"/campaigns/{cid}/spend-cap", json={"cap": -5}).status_code == 400
+
+
+def test_sync_requires_live_campaign():
+    cid = client.post("/campaigns/generate", json={"goal": "not launched"}).json()["id"]
+    assert client.post(f"/campaigns/{cid}/sync").status_code == 409
+
+
 def test_list_includes_created_campaigns():
     before = len(client.get("/campaigns").json())
     client.post("/campaigns/generate", json={"goal": "Promote a new podcast"})

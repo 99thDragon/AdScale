@@ -15,15 +15,19 @@ from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()  # read backend/.env if present (ANTHROPIC_API_KEY, etc.)
 
-from . import store  # noqa: E402  (import after load_dotenv)
+from . import connectors, store  # noqa: E402  (import after load_dotenv)
 from .agent import generate_campaign_draft, suggest_optimizations  # noqa: E402
+from .db import init_db  # noqa: E402
 from .models import (  # noqa: E402
     Campaign,
     GenerateRequest,
     ImpactStory,
     OptimizationSuggestion,
+    SpendCapRequest,
     StatusResponse,
 )
+
+init_db()  # ensure tables exist before any request
 
 app = FastAPI(title="AdScale API", version="0.1.0")
 
@@ -67,7 +71,7 @@ def approve(cid: str):
 
 @app.post("/campaigns/{cid}/launch", response_model=StatusResponse)
 def launch(cid: str):
-    """[P0] Launch — enforces approve-before-spend at the API level."""
+    """[P0] Launch — enforces approve-before-spend, then dispatches to the connector."""
     campaign = store.get_campaign(cid)
     if campaign is None:
         raise HTTPException(status_code=404, detail="campaign not found")
@@ -76,7 +80,33 @@ def launch(cid: str):
             status_code=409, detail="campaign must be approved before launch"
         )
     campaign = store.set_status(cid, "active")
+    # Dispatch to the ad-platform connector; spend is capped by the guardrail (#24/#25).
+    performance = connectors.launch(campaign, campaign.spend_cap)
+    store.update_performance(cid, performance)
     return StatusResponse(id=campaign.id, status=campaign.status)
+
+
+@app.put("/campaigns/{cid}/spend-cap", response_model=Campaign)
+def set_spend_cap(cid: str, req: SpendCapRequest):
+    """[P0] Set the spend cap the agent may never exceed (issue #25)."""
+    if req.cap is not None and req.cap < 0:
+        raise HTTPException(status_code=400, detail="cap must be >= 0")
+    campaign = store.set_spend_cap(cid, req.cap)
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    return campaign
+
+
+@app.post("/campaigns/{cid}/sync", response_model=Campaign)
+def sync_performance(cid: str):
+    """[P0] Pull the latest performance from the connector (issue #24)."""
+    campaign = store.get_campaign(cid)
+    if campaign is None:
+        raise HTTPException(status_code=404, detail="campaign not found")
+    if campaign.status != "active" or campaign.performance is None:
+        raise HTTPException(status_code=409, detail="campaign is not live")
+    performance = connectors.refresh(campaign, campaign.performance, campaign.spend_cap)
+    return store.update_performance(cid, performance)
 
 
 @app.get("/campaigns/{cid}/optimizations", response_model=list[OptimizationSuggestion])
